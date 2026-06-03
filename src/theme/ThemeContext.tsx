@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useMemo } from 'react';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from './index';
+import React, {createContext, useContext, useMemo} from 'react';
+import {COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS} from './index';
 
 type Theme = {
   colors: typeof COLORS;
@@ -21,11 +21,15 @@ const defaultTheme: Theme = {
 
 const ThemeContext = createContext<Theme>(defaultTheme);
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({
+  children,
+}) => {
   // In the future, logic for dark mode can be injected here.
   const theme = useMemo(() => defaultTheme, []);
 
-  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
+  );
 };
 
 export const useTheme = () => useContext(ThemeContext);

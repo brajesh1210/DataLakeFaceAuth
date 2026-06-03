@@ -1,6 +1,6 @@
-import { MMKV } from 'react-native-mmkv';
+import {MMKV} from 'react-native-mmkv';
 
-export const storage = new MMKV({ id: 'datalake-storage' });
+export const storage = new MMKV({id: 'datalake-storage'});
 
 export const StorageKeys = {
   AUTH_USER: 'auth.user',
@@ -18,7 +18,9 @@ export function persistJSON<T>(key: string, value: T): void {
 
 export function loadJSON<T>(key: string): T | null {
   const raw = storage.getString(key);
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
   try {
     return JSON.parse(raw) as T;
   } catch {

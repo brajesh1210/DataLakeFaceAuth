@@ -35,3 +35,11 @@ export type AuthStage =
   | 'failure';
 
 export type LivenessChallenge = 'blink' | 'smile' | 'turn';
+
+export interface FaceEmbedding {
+  id: string;
+  userId: string;
+  embedding: Float32Array;
+  qualityScore: number;
+  createdAt: number;
+}

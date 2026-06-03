@@ -1,6 +1,12 @@
-import { create } from 'zustand';
-import type { User, AttendanceRecord } from '../types/types';
-import { storage, StorageKeys, persistJSON, loadJSON } from '@services/StorageService';
+import {create} from 'zustand';
+import type {User, AttendanceRecord, FaceEmbedding} from '../types/types';
+import {
+  storage,
+  StorageKeys,
+  persistJSON,
+  loadJSON,
+} from '@services/StorageService';
+import {databaseService} from '@services/DatabaseService';
 
 // ─── Mock Data Factories ────────────────────────────────────────
 
@@ -15,10 +21,10 @@ const MOCK_PROJECT_SITES = [
 ];
 
 const GPS_LOCATIONS = [
-  { lat: 28.6139, lng: 77.209 },   // Delhi
-  { lat: 26.9124, lng: 75.7873 },  // Jaipur
-  { lat: 27.1767, lng: 78.0081 },  // Agra
-  { lat: 19.076, lng: 72.8777 },   // Mumbai
+  {lat: 28.6139, lng: 77.209}, // Delhi
+  {lat: 26.9124, lng: 75.7873}, // Jaipur
+  {lat: 27.1767, lng: 78.0081}, // Agra
+  {lat: 19.076, lng: 72.8777}, // Mumbai
 ];
 
 function getInitials(name: string): string {
@@ -32,11 +38,66 @@ function getInitials(name: string): string {
 
 function createMockUsers(): User[] {
   const users: User[] = [
-    { id: 'u1', name: 'Rahul Kumar', employeeId: 'EMP12345', department: 'Field Engineer', projectSite: MOCK_PROJECT_SITES[0], mobile: '9876543210', faceRegistered: true, registeredAt: Date.now() - 86400000 * 30, initials: 'RK', avatarColor: AVATAR_COLORS[0] },
-    { id: 'u2', name: 'Priya Sharma', employeeId: 'EMP12346', department: 'Surveyor', projectSite: MOCK_PROJECT_SITES[1], mobile: '9876543211', faceRegistered: true, registeredAt: Date.now() - 86400000 * 25, initials: 'PS', avatarColor: AVATAR_COLORS[1] },
-    { id: 'u3', name: 'Amit Singh', employeeId: 'EMP12347', department: 'Inspector', projectSite: MOCK_PROJECT_SITES[2], mobile: '9876543212', faceRegistered: true, registeredAt: Date.now() - 86400000 * 20, initials: 'AS', avatarColor: AVATAR_COLORS[2] },
-    { id: 'u4', name: 'Neha Gupta', employeeId: 'EMP12348', department: 'Supervisor', projectSite: MOCK_PROJECT_SITES[3], mobile: '9876543213', faceRegistered: true, registeredAt: Date.now() - 86400000 * 15, initials: 'NG', avatarColor: AVATAR_COLORS[3] },
-    { id: 'u5', name: 'Vikram Patel', employeeId: 'EMP12349', department: 'Field Engineer', projectSite: MOCK_PROJECT_SITES[4], mobile: '9876543214', faceRegistered: false, registeredAt: Date.now() - 86400000 * 10, initials: 'VP', avatarColor: AVATAR_COLORS[4] },
+    {
+      id: 'u1',
+      name: 'Rahul Kumar',
+      employeeId: 'EMP12345',
+      department: 'Field Engineer',
+      projectSite: MOCK_PROJECT_SITES[0],
+      mobile: '9876543210',
+      faceRegistered: true,
+      registeredAt: Date.now() - 86400000 * 30,
+      initials: 'RK',
+      avatarColor: AVATAR_COLORS[0],
+    },
+    {
+      id: 'u2',
+      name: 'Priya Sharma',
+      employeeId: 'EMP12346',
+      department: 'Surveyor',
+      projectSite: MOCK_PROJECT_SITES[1],
+      mobile: '9876543211',
+      faceRegistered: true,
+      registeredAt: Date.now() - 86400000 * 25,
+      initials: 'PS',
+      avatarColor: AVATAR_COLORS[1],
+    },
+    {
+      id: 'u3',
+      name: 'Amit Singh',
+      employeeId: 'EMP12347',
+      department: 'Inspector',
+      projectSite: MOCK_PROJECT_SITES[2],
+      mobile: '9876543212',
+      faceRegistered: true,
+      registeredAt: Date.now() - 86400000 * 20,
+      initials: 'AS',
+      avatarColor: AVATAR_COLORS[2],
+    },
+    {
+      id: 'u4',
+      name: 'Neha Gupta',
+      employeeId: 'EMP12348',
+      department: 'Supervisor',
+      projectSite: MOCK_PROJECT_SITES[3],
+      mobile: '9876543213',
+      faceRegistered: true,
+      registeredAt: Date.now() - 86400000 * 15,
+      initials: 'NG',
+      avatarColor: AVATAR_COLORS[3],
+    },
+    {
+      id: 'u5',
+      name: 'Vikram Patel',
+      employeeId: 'EMP12349',
+      department: 'Field Engineer',
+      projectSite: MOCK_PROJECT_SITES[4],
+      mobile: '9876543214',
+      faceRegistered: false,
+      registeredAt: Date.now() - 86400000 * 10,
+      initials: 'VP',
+      avatarColor: AVATAR_COLORS[4],
+    },
   ];
   return users;
 }
@@ -52,7 +113,8 @@ function createMockAttendance(users: User[]): AttendanceRecord[] {
     const usersForDay = users.slice(0, dayOffset < 3 ? 3 : 2);
 
     for (const user of usersForDay) {
-      const gps = GPS_LOCATIONS[Math.floor(Math.random() * GPS_LOCATIONS.length)];
+      const gps =
+        GPS_LOCATIONS[Math.floor(Math.random() * GPS_LOCATIONS.length)];
       const checkInHour = 8 + Math.floor(Math.random() * 2);
       const checkInMin = Math.floor(Math.random() * 60);
       const checkInTime = new Date(dayBase);
@@ -76,7 +138,12 @@ function createMockAttendance(users: User[]): AttendanceRecord[] {
       // Add checkout for most
       if (Math.random() > 0.2) {
         const checkOutTime = new Date(dayBase);
-        checkOutTime.setHours(checkInHour + 8 + Math.floor(Math.random() * 2), checkInMin, 0, 0);
+        checkOutTime.setHours(
+          checkInHour + 8 + Math.floor(Math.random() * 2),
+          checkInMin,
+          0,
+          0,
+        );
         records.push({
           id: `att-${idCounter++}`,
           userId: user.id,
@@ -121,14 +188,21 @@ interface AppState {
   autoSync: boolean;
 
   // Actions
+  loadFromDatabase: () => Promise<void>;
   login: (username: string, role: string) => void;
   logout: () => void;
-  registerUser: (user: Omit<User, 'id' | 'initials' | 'avatarColor' | 'registeredAt' | 'faceRegistered'>) => void;
-  addAttendanceRecord: (record: Omit<AttendanceRecord, 'id'>) => void;
-  markRecordsAsSynced: (ids: string[]) => void;
+  registerUser: (
+    user: Omit<
+      User,
+      'id' | 'initials' | 'avatarColor' | 'registeredAt' | 'faceRegistered'
+    >,
+    embedding: Float32Array,
+  ) => Promise<void>;
+  addAttendanceRecord: (record: Omit<AttendanceRecord, 'id'>) => Promise<void>;
+  markRecordsAsSynced: (ids: string[]) => Promise<void>;
   setNetworkStatus: (online: boolean) => void;
   setAutoSync: (enabled: boolean) => void;
-  purge: () => void;
+  purge: () => Promise<void>;
   setRememberedUsername: (username: string) => void;
 }
 
@@ -140,8 +214,12 @@ function hydrateUsers(): User[] {
 }
 
 function hydrateRecords(users: User[]): AttendanceRecord[] {
-  const persisted = loadJSON<AttendanceRecord[]>(StorageKeys.ATTENDANCE_RECORDS);
-  return persisted && persisted.length > 0 ? persisted : createMockAttendance(users);
+  const persisted = loadJSON<AttendanceRecord[]>(
+    StorageKeys.ATTENDANCE_RECORDS,
+  );
+  return persisted && persisted.length > 0
+    ? persisted
+    : createMockAttendance(users);
 }
 
 const initialUsers = hydrateUsers();
@@ -167,6 +245,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // ── Actions ─────────────────────────────────────────────────
 
+  loadFromDatabase: async () => {
+    try {
+      const users = await databaseService.getAllUsers();
+      const records = await databaseService.getRecentAttendance(100); // load last 100
+
+      set({
+        registeredUsers: users,
+        attendanceRecords: records,
+        pendingSyncCount: records.filter(r => !r.synced).length,
+      });
+
+      // Keep MMKV backup for fast synchronous boot before async SQLite completes
+      persistJSON(StorageKeys.REGISTERED_USERS, users);
+      persistJSON(StorageKeys.ATTENDANCE_RECORDS, records);
+    } catch (e) {
+      console.error('[AppStore] Failed to load from database', e);
+    }
+  },
+
   login: (username: string, role: string) => {
     const user: User = {
       id: `user-${Date.now()}`,
@@ -175,51 +272,75 @@ export const useAppStore = create<AppState>((set, get) => ({
       department: role,
       projectSite: MOCK_PROJECT_SITES[0],
       mobile: '0000000000',
-      faceRegistered: false,
+      faceRegistered: false, // Wait for them to register face
       registeredAt: Date.now(),
       initials: getInitials(username),
-      avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+      avatarColor:
+        AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
     };
-    set({ isAuthenticated: true, currentUser: user });
+    set({isAuthenticated: true, currentUser: user});
     storage.set(StorageKeys.IS_AUTHENTICATED, true);
     persistJSON(StorageKeys.AUTH_USER, user);
   },
 
   logout: () => {
-    set({ isAuthenticated: false, currentUser: null });
+    set({isAuthenticated: false, currentUser: null});
     storage.set(StorageKeys.IS_AUTHENTICATED, false);
     storage.delete(StorageKeys.AUTH_USER);
   },
 
-  registerUser: (userData) => {
+  registerUser: async (userData, embedding) => {
     const newUser: User = {
       ...userData,
       id: `u-${Date.now()}`,
       initials: getInitials(userData.name),
-      avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+      avatarColor:
+        AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
       registeredAt: Date.now(),
       faceRegistered: true,
     };
+
+    // Save to SQLite
+    try {
+      await databaseService.registerUser(newUser, embedding);
+    } catch (e) {
+      console.error('[AppStore] Failed to save user to DB', e);
+    }
+
     const updated = [...get().registeredUsers, newUser];
-    set({ registeredUsers: updated });
+    set({registeredUsers: updated});
     persistJSON(StorageKeys.REGISTERED_USERS, updated);
   },
 
-  addAttendanceRecord: (recordData) => {
+  addAttendanceRecord: async recordData => {
     const record: AttendanceRecord = {
       ...recordData,
       id: `att-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     };
+
+    // Save to SQLite
+    try {
+      await databaseService.recordAttendance(record);
+    } catch (e) {
+      console.error('[AppStore] Failed to save attendance to DB', e);
+    }
+
     const updated = [record, ...get().attendanceRecords];
     const pendingCount = updated.filter(r => !r.synced).length;
-    set({ attendanceRecords: updated, pendingSyncCount: pendingCount });
+    set({attendanceRecords: updated, pendingSyncCount: pendingCount});
     persistJSON(StorageKeys.ATTENDANCE_RECORDS, updated);
   },
 
-  markRecordsAsSynced: (ids: string[]) => {
+  markRecordsAsSynced: async (ids: string[]) => {
+    try {
+      await databaseService.markRecordsSynced(ids);
+    } catch (e) {
+      console.error('[AppStore] Failed to sync records in DB', e);
+    }
+
     const idSet = new Set(ids);
     const updated = get().attendanceRecords.map(r =>
-      idSet.has(r.id) ? { ...r, synced: true } : r,
+      idSet.has(r.id) ? {...r, synced: true} : r,
     );
     const pendingCount = updated.filter(r => !r.synced).length;
     set({
@@ -232,22 +353,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setNetworkStatus: (online: boolean) => {
-    set({ isOnline: online });
+    set({isOnline: online});
   },
 
   setAutoSync: (enabled: boolean) => {
-    set({ autoSync: enabled });
+    set({autoSync: enabled});
     storage.set(StorageKeys.AUTO_SYNC, enabled);
   },
 
-  purge: () => {
+  purge: async () => {
+    try {
+      await databaseService.clearAllData();
+    } catch (e) {
+      console.error('[AppStore] Failed to purge DB', e);
+    }
     const remaining = get().attendanceRecords.filter(r => !r.synced);
-    set({ attendanceRecords: remaining, pendingSyncCount: remaining.length });
+    set({attendanceRecords: remaining, pendingSyncCount: remaining.length});
     persistJSON(StorageKeys.ATTENDANCE_RECORDS, remaining);
   },
 
   setRememberedUsername: (username: string) => {
-    set({ rememberedUsername: username });
+    set({rememberedUsername: username});
     storage.set(StorageKeys.REMEMBERED_USERNAME, username);
   },
 }));

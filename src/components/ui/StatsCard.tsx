@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import { useTheme } from '@theme/ThemeContext';
+import {StyleSheet, View, Text} from 'react-native';
+import {useTheme} from '@theme/ThemeContext';
 
 export interface StatItem {
   value: string | number;
@@ -13,30 +13,30 @@ export interface StatsCardProps {
   columns?: 2 | 4;
 }
 
-export const StatsCard = React.memo(({ stats, columns = 2 }: StatsCardProps) => {
-  const { typography, colors } = useTheme();
-  
+export const StatsCard = React.memo(({stats, columns = 2}: StatsCardProps) => {
+  const {typography, colors} = useTheme();
+
   // Calculate width percentage based on columns
   const itemWidth = columns === 2 ? '50%' : '25%';
 
   return (
     <View style={styles.container}>
       {stats.map((stat, index) => (
-        <View key={index} style={[styles.statContainer, { width: itemWidth as any }]}>
+        <View
+          key={index}
+          style={[styles.statContainer, {width: itemWidth as any}]}>
           <Text
-            style={[
-              typography.h1,
-              { color: stat.color || colors.primary.navy },
-            ]}
+            style={[typography.h1, {color: stat.color || colors.primary.navy}]}
             numberOfLines={1}
-            adjustsFontSizeToFit
-          >
+            adjustsFontSizeToFit>
             {stat.value}
           </Text>
           <Text
-            style={[typography.bodySmall, { color: colors.text.secondary, marginTop: 4 }]}
-            numberOfLines={2}
-          >
+            style={[
+              typography.bodySmall,
+              {color: colors.text.secondary, marginTop: 4},
+            ]}
+            numberOfLines={2}>
             {stat.label}
           </Text>
         </View>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, {useState, useCallback, useMemo} from 'react';
 import {
   StyleSheet,
   View,
@@ -10,18 +10,23 @@ import {
   Pressable,
   Alert,
 } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useTheme } from '@theme/ThemeContext';
-import { GradientBackground } from '@components/ui/GradientBackground';
-import { Card } from '@components/ui/Card';
-import { NHAIHeader } from '@components/branding/NHAIHeader';
-import { FloatingInput } from '@components/ui/FloatingInput';
-import { Dropdown } from '@components/ui/Dropdown';
-import { Checkbox } from '@components/ui/Checkbox';
-import { PrimaryButton } from '@components/ui/PrimaryButton';
-import { useAppStore } from '@store/useAppStore';
-import type { RootStackScreenProps } from '@navigation/navigationTypes';
+import {useTheme} from '@theme/ThemeContext';
+import {GradientBackground} from '@components/ui/GradientBackground';
+import {Card} from '@components/ui/Card';
+import {NHAIHeader} from '@components/branding/NHAIHeader';
+import {FloatingInput} from '@components/ui/FloatingInput';
+import {Dropdown} from '@components/ui/Dropdown';
+import {Checkbox} from '@components/ui/Checkbox';
+import {PrimaryButton} from '@components/ui/PrimaryButton';
+import {useAppStore} from '@store/useAppStore';
+import type {RootStackScreenProps} from '@navigation/navigationTypes';
 
 // ─── Captcha Generator ──────────────────────────────────────────
 
@@ -36,17 +41,25 @@ function generateCaptcha(): string {
 
 // ─── Quick Action Pill ──────────────────────────────────────────
 
-const QuickActionPill = ({ title, icon }: { title: string; icon: string }) => {
-  const { colors, typography, radius } = useTheme();
+const QuickActionPill = ({title, icon}: {title: string; icon: string}) => {
+  const {colors, typography, radius} = useTheme();
   return (
     <Pressable
       style={[
         styles.quickActionPill,
-        { backgroundColor: '#D6E3F1', borderRadius: radius.md },
-      ]}
-    >
-      <Icon name={icon} size={18} color={colors.primary.navy} style={{ marginRight: 8 }} />
-      <Text style={[typography.bodySmall, { color: colors.primary.navy, fontWeight: '600', flex: 1 }]}>
+        {backgroundColor: '#D6E3F1', borderRadius: radius.md},
+      ]}>
+      <Icon
+        name={icon}
+        size={18}
+        color={colors.primary.navy}
+        style={{marginRight: 8}}
+      />
+      <Text
+        style={[
+          typography.bodySmall,
+          {color: colors.primary.navy, fontWeight: '600', flex: 1},
+        ]}>
         {title}
       </Text>
       <Icon name="chevron-down" size={18} color={colors.primary.navy} />
@@ -57,14 +70,14 @@ const QuickActionPill = ({ title, icon }: { title: string; icon: string }) => {
 // ─── Login Screen ───────────────────────────────────────────────
 
 const ROLES = [
-  { label: 'Field Officer', value: 'Field Officer' },
-  { label: 'Supervisor', value: 'Supervisor' },
-  { label: 'Admin', value: 'Admin' },
+  {label: 'Field Officer', value: 'Field Officer'},
+  {label: 'Supervisor', value: 'Supervisor'},
+  {label: 'Admin', value: 'Admin'},
 ];
 
-export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
-  const { colors, typography, spacing, radius } = useTheme();
-  const { login, rememberedUsername, setRememberedUsername } = useAppStore();
+export const LoginScreen = ({navigation}: RootStackScreenProps<'Login'>) => {
+  const {colors, typography, spacing, radius} = useTheme();
+  const {login, rememberedUsername, setRememberedUsername} = useAppStore();
 
   // Form state
   const [role, setRole] = useState<string | null>(null);
@@ -79,16 +92,16 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
   // Shake animation for error
   const shakeX = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shakeX.value }],
+    transform: [{translateX: shakeX.value}],
   }));
 
   const triggerShake = useCallback(() => {
     shakeX.value = withSequence(
-      withTiming(10, { duration: 50 }),
-      withTiming(-10, { duration: 50 }),
-      withTiming(10, { duration: 50 }),
-      withTiming(-10, { duration: 50 }),
-      withTiming(0, { duration: 50 }),
+      withTiming(10, {duration: 50}),
+      withTiming(-10, {duration: 50}),
+      withTiming(10, {duration: 50}),
+      withTiming(-10, {duration: 50}),
+      withTiming(0, {duration: 50}),
     );
   }, [shakeX]);
 
@@ -136,20 +149,34 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
       setLoading(false);
       navigation.replace('MainTabs');
     }, 800);
-  }, [role, username, password, captchaInput, captcha, rememberMe, login, navigation, triggerShake, refreshCaptcha, setRememberedUsername]);
+  }, [
+    role,
+    username,
+    password,
+    captchaInput,
+    captcha,
+    rememberMe,
+    login,
+    navigation,
+    triggerShake,
+    refreshCaptcha,
+    setRememberedUsername,
+  ]);
 
   return (
     <GradientBackground colors={['#D6E3F1', '#E8F1FB', '#FFFFFF']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent
+      />
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+          showsVerticalScrollIndicator={false}>
           {/* NHAI Header */}
           <View style={styles.headerSection}>
             <NHAIHeader />
@@ -157,14 +184,31 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
 
           {/* Quick Actions */}
           <View style={styles.quickActionsSection}>
-            <QuickActionPill title="DATALAKE TRAINING VIDEO" icon="play-circle-outline" />
-            <QuickActionPill title="FACE REGISTRATION FOR FIELD STAFF" icon="face-recognition" />
-            <QuickActionPill title="MARK ATTENDANCE OFFLINE" icon="calendar-check-outline" />
+            <QuickActionPill
+              title="DATALAKE TRAINING VIDEO"
+              icon="play-circle-outline"
+            />
+            <QuickActionPill
+              title="FACE REGISTRATION FOR FIELD STAFF"
+              icon="face-recognition"
+            />
+            <QuickActionPill
+              title="MARK ATTENDANCE OFFLINE"
+              icon="calendar-check-outline"
+            />
             <QuickActionPill title="VIEW ATTENDANCE REPORTS" icon="chart-bar" />
           </View>
 
           {/* Welcome */}
-          <Text style={[typography.h2, { color: colors.primary.navy, marginBottom: spacing.lg, marginTop: spacing.xl }]}>
+          <Text
+            style={[
+              typography.h2,
+              {
+                color: colors.primary.navy,
+                marginBottom: spacing.lg,
+                marginTop: spacing.xl,
+              },
+            ]}>
             Welcome to Field Auth Portal
           </Text>
 
@@ -178,7 +222,7 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
                 onChange={setRole}
               />
 
-              <View style={{ height: spacing.lg }} />
+              <View style={{height: spacing.lg}} />
 
               <FloatingInput
                 label="Username"
@@ -188,7 +232,7 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
                 autoCorrect={false}
               />
 
-              <View style={{ height: spacing.lg }} />
+              <View style={{height: spacing.lg}} />
 
               <FloatingInput
                 label="Password"
@@ -197,7 +241,7 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
                 secureTextEntry
               />
 
-              <View style={{ height: spacing.lg }} />
+              <View style={{height: spacing.lg}} />
 
               {/* Captcha */}
               <View style={styles.captchaRow}>
@@ -208,8 +252,7 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
                       backgroundColor: colors.background.input,
                       borderRadius: radius.md,
                     },
-                  ]}
-                >
+                  ]}>
                   <Text
                     style={[
                       typography.h3,
@@ -219,17 +262,23 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
                         fontStyle: 'italic',
                         fontWeight: '700',
                       },
-                    ]}
-                  >
+                    ]}>
                     {captcha}
                   </Text>
                 </View>
-                <Pressable onPress={refreshCaptcha} style={styles.captchaRefresh} hitSlop={10}>
-                  <Icon name="refresh" size={24} color={colors.primary.lightBlue} />
+                <Pressable
+                  onPress={refreshCaptcha}
+                  style={styles.captchaRefresh}
+                  hitSlop={10}>
+                  <Icon
+                    name="refresh"
+                    size={24}
+                    color={colors.primary.lightBlue}
+                  />
                 </Pressable>
               </View>
 
-              <View style={{ height: spacing.sm }} />
+              <View style={{height: spacing.sm}} />
 
               <FloatingInput
                 label="Enter Captcha"
@@ -239,7 +288,7 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
                 autoCorrect={false}
               />
 
-              <View style={{ height: spacing.md }} />
+              <View style={{height: spacing.md}} />
 
               <Checkbox
                 checked={rememberMe}
@@ -249,23 +298,31 @@ export const LoginScreen = ({ navigation }: RootStackScreenProps<'Login'>) => {
 
               {/* Error Message */}
               {error ? (
-                <Text style={[typography.bodySmall, { color: colors.accent.red, marginTop: spacing.sm, marginBottom: spacing.sm }]}>
+                <Text
+                  style={[
+                    typography.bodySmall,
+                    {
+                      color: colors.accent.red,
+                      marginTop: spacing.sm,
+                      marginBottom: spacing.sm,
+                    },
+                  ]}>
                   {error}
                 </Text>
               ) : null}
 
-              <View style={{ height: spacing.lg }} />
+              <View style={{height: spacing.lg}} />
 
               <PrimaryButton
                 title="SIGN IN"
                 onPress={handleSignIn}
                 loading={loading}
-                style={{ borderRadius: radius.md }}
+                style={{borderRadius: radius.md}}
               />
             </Card>
           </Animated.View>
 
-          <View style={{ height: 40 }} />
+          <View style={{height: 40}} />
         </ScrollView>
       </KeyboardAvoidingView>
     </GradientBackground>

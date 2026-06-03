@@ -1,19 +1,19 @@
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useTheme } from '@theme/ThemeContext';
-import type { RootStackParamList, TabParamList } from './navigationTypes';
+import {useTheme} from '@theme/ThemeContext';
+import type {RootStackParamList, TabParamList} from './navigationTypes';
 
 // Screens
-import { SplashScreen } from '@screens/SplashScreen';
-import { LoginScreen } from '@screens/LoginScreen';
-import { HomeScreen } from '@screens/HomeScreen';
-import { AttendanceDashboard } from '@screens/AttendanceDashboard';
-import { AttendanceLogScreen } from '@screens/AttendanceLogScreen';
-import { SyncScreen } from '@screens/SyncScreen';
-import { RegisterFaceScreen } from '@screens/RegisterFaceScreen';
-import { AuthenticateScreen } from '@screens/AuthenticateScreen';
+import {SplashScreen} from '@screens/SplashScreen';
+import {LoginScreen} from '@screens/LoginScreen';
+import {HomeScreen} from '@screens/HomeScreen';
+import {AttendanceDashboard} from '@screens/AttendanceDashboard';
+import {AttendanceLogScreen} from '@screens/AttendanceLogScreen';
+import {SyncScreen} from '@screens/SyncScreen';
+import {RegisterFaceScreen} from '@screens/RegisterFaceScreen';
+import {AuthenticateScreen} from '@screens/AuthenticateScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -21,7 +21,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 // ─── Bottom Tab Navigator ───────────────────────────────────────
 
 function MainTabs() {
-  const { colors, typography } = useTheme();
+  const {colors, typography} = useTheme();
 
   return (
     <Tab.Navigator
@@ -41,14 +41,13 @@ function MainTabs() {
           height: 60,
           paddingTop: 6,
         },
-      }}
-    >
+      }}>
       <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({color, size}) => (
             <Icon name="home" size={size} color={color} />
           ),
         }}
@@ -58,7 +57,7 @@ function MainTabs() {
         component={AttendanceDashboard}
         options={{
           tabBarLabel: 'Attendance',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({color, size}) => (
             <Icon name="calendar-check" size={size} color={color} />
           ),
         }}
@@ -68,7 +67,7 @@ function MainTabs() {
         component={AttendanceLogScreen}
         options={{
           tabBarLabel: 'Log',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({color, size}) => (
             <Icon name="format-list-bulleted" size={size} color={color} />
           ),
         }}
@@ -78,7 +77,7 @@ function MainTabs() {
         component={SyncScreen}
         options={{
           tabBarLabel: 'Sync',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({color, size}) => (
             <Icon name="sync" size={size} color={color} />
           ),
         }}
@@ -91,20 +90,18 @@ function MainTabs() {
 
 export function AppNavigator() {
   return (
-    <Stack.Navigator
-      screenOptions={{ headerShown: false, animation: 'fade' }}
-    >
+    <Stack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}>
       <Stack.Screen name="Splash" component={SplashScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen
         name="MainTabs"
         component={MainTabs}
-        options={{ animation: 'fade_from_bottom' }}
+        options={{animation: 'fade_from_bottom'}}
       />
       <Stack.Screen
         name="RegisterFace"
         component={RegisterFaceScreen}
-        options={{ animation: 'slide_from_right' }}
+        options={{animation: 'slide_from_right'}}
       />
       <Stack.Screen
         name="Authenticate"

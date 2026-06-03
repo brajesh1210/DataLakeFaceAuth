@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, TextInput, Pressable } from 'react-native';
-import { useTheme } from '@theme/ThemeContext';
+import {StyleSheet, View, TextInput, Pressable} from 'react-native';
+import {useTheme} from '@theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export interface SearchBarProps {
@@ -10,39 +10,48 @@ export interface SearchBarProps {
   onSubmit?: () => void;
 }
 
-export const SearchBar = React.memo(({
-  value,
-  onChangeText,
-  placeholder = 'Search...',
-  onSubmit,
-}: SearchBarProps) => {
-  const { colors, typography, radius } = useTheme();
+export const SearchBar = React.memo(
+  ({
+    value,
+    onChangeText,
+    placeholder = 'Search...',
+    onSubmit,
+  }: SearchBarProps) => {
+    const {colors, typography, radius} = useTheme();
 
-  return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: colors.background.input, borderRadius: radius.md },
-      ]}
-    >
-      <Icon name="magnify" size={24} color={colors.text.secondary} style={styles.icon} />
-      <TextInput
-        style={[styles.input, typography.body, { color: colors.text.primary }]}
-        placeholder={placeholder}
-        placeholderTextColor={colors.text.tertiary}
-        value={value}
-        onChangeText={onChangeText}
-        onSubmitEditing={onSubmit}
-        returnKeyType="search"
-      />
-      {value.length > 0 && (
-        <Pressable onPress={() => onChangeText('')} style={styles.clearButton} hitSlop={10}>
-          <Icon name="close-circle" size={20} color={colors.text.tertiary} />
-        </Pressable>
-      )}
-    </View>
-  );
-});
+    return (
+      <View
+        style={[
+          styles.container,
+          {backgroundColor: colors.background.input, borderRadius: radius.md},
+        ]}>
+        <Icon
+          name="magnify"
+          size={24}
+          color={colors.text.secondary}
+          style={styles.icon}
+        />
+        <TextInput
+          style={[styles.input, typography.body, {color: colors.text.primary}]}
+          placeholder={placeholder}
+          placeholderTextColor={colors.text.tertiary}
+          value={value}
+          onChangeText={onChangeText}
+          onSubmitEditing={onSubmit}
+          returnKeyType="search"
+        />
+        {value.length > 0 && (
+          <Pressable
+            onPress={() => onChangeText('')}
+            style={styles.clearButton}
+            hitSlop={10}>
+            <Icon name="close-circle" size={20} color={colors.text.tertiary} />
+          </Pressable>
+        )}
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {

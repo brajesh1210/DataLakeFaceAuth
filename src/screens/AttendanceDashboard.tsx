@@ -1,40 +1,58 @@
-import React, { useState, useMemo } from 'react';
-import { StyleSheet, View, Text, ScrollView, StatusBar } from 'react-native';
+import React, {useState, useMemo} from 'react';
+import {StyleSheet, View, Text, ScrollView, StatusBar} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useTheme } from '@theme/ThemeContext';
-import { GradientBackground } from '@components/ui/GradientBackground';
-import { Card } from '@components/ui/Card';
-import { TogglePill } from '@components/ui/TogglePill';
-import { SectionHeader } from '@components/ui/SectionHeader';
-import { StatsCard } from '@components/ui/StatsCard';
-import { PrimaryButton } from '@components/ui/PrimaryButton';
-import { StatusBadge } from '@components/ui/StatusBadge';
-import { useAppStore } from '@store/useAppStore';
-import type { TabScreenProps } from '@navigation/navigationTypes';
+import {useTheme} from '@theme/ThemeContext';
+import {GradientBackground} from '@components/ui/GradientBackground';
+import {Card} from '@components/ui/Card';
+import {TogglePill} from '@components/ui/TogglePill';
+import {SectionHeader} from '@components/ui/SectionHeader';
+import {StatsCard} from '@components/ui/StatsCard';
+import {PrimaryButton} from '@components/ui/PrimaryButton';
+import {StatusBadge} from '@components/ui/StatusBadge';
+import {useAppStore} from '@store/useAppStore';
+import type {TabScreenProps} from '@navigation/navigationTypes';
 
-export const AttendanceDashboard = ({ navigation }: TabScreenProps<'Attendance'>) => {
-  const { colors, typography, spacing, radius } = useTheme();
-  const { attendanceRecords, currentUser } = useAppStore();
+export const AttendanceDashboard = ({
+  navigation,
+}: TabScreenProps<'Attendance'>) => {
+  const {colors, typography, spacing, radius} = useTheme();
+  const {attendanceRecords, currentUser} = useAppStore();
   const [viewMode, setViewMode] = useState('Me');
 
   // Today's date formatted
   const today = new Date();
-  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const months = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
+  ];
   const todayLabel = `${today.getDate()} ${months[today.getMonth()]}`;
 
   // Calculate stats from records (last 7 days)
   const stats = useMemo(() => {
     const now = Date.now();
     const sevenDaysAgo = now - 7 * 86400000;
-    const recentRecords = attendanceRecords.filter(r => r.timestamp >= sevenDaysAgo);
+    const recentRecords = attendanceRecords.filter(
+      r => r.timestamp >= sevenDaysAgo,
+    );
 
     const checkIns = recentRecords.filter(r => r.type === 'check-in');
     const uniqueDays = new Set(
-      checkIns.map(r => new Date(r.timestamp).toDateString())
+      checkIns.map(r => new Date(r.timestamp).toDateString()),
     ).size;
 
     const avgHours = checkIns.length > 0 ? '8h 30m' : '0h';
-    const attendancePct = uniqueDays > 0 ? `${Math.round((uniqueDays / 7) * 100)}%` : '0%';
+    const attendancePct =
+      uniqueDays > 0 ? `${Math.round((uniqueDays / 7) * 100)}%` : '0%';
 
     return {
       presentDays: uniqueDays.toString(),
@@ -48,15 +66,15 @@ export const AttendanceDashboard = ({ navigation }: TabScreenProps<'Attendance'>
   const todayCheckIn = useMemo(() => {
     const todayStr = new Date().toDateString();
     return attendanceRecords.find(
-      r => r.type === 'check-in' && new Date(r.timestamp).toDateString() === todayStr
+      r =>
+        r.type === 'check-in' &&
+        new Date(r.timestamp).toDateString() === todayStr,
     );
   }, [attendanceRecords]);
 
   // Recent attendance records for the list (last 7 entries)
   const recentList = useMemo(() => {
-    return attendanceRecords
-      .filter(r => r.type === 'check-in')
-      .slice(0, 7);
+    return attendanceRecords.filter(r => r.type === 'check-in').slice(0, 7);
   }, [attendanceRecords]);
 
   const formatTime = (ts: number): string => {
@@ -73,28 +91,31 @@ export const AttendanceDashboard = ({ navigation }: TabScreenProps<'Attendance'>
   };
 
   // Find matching check-out for a check-in
-  const findCheckOut = (checkIn: typeof attendanceRecords[0]) => {
+  const findCheckOut = (checkIn: (typeof attendanceRecords)[0]) => {
     const checkInDate = new Date(checkIn.timestamp).toDateString();
     return attendanceRecords.find(
-      r => r.type === 'check-out' &&
-           r.userId === checkIn.userId &&
-           new Date(r.timestamp).toDateString() === checkInDate
+      r =>
+        r.type === 'check-out' &&
+        r.userId === checkIn.userId &&
+        new Date(r.timestamp).toDateString() === checkInDate,
     );
   };
 
   return (
     <GradientBackground>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         {/* Motivational */}
         <View style={styles.motivational}>
-          <Text style={[typography.h2, { color: colors.primary.navy }]}>
+          <Text style={[typography.h2, {color: colors.primary.navy}]}>
             Smarter Check-Ins.
           </Text>
-          <Text style={[typography.h1, { color: colors.primary.navy, fontWeight: '700' }]}>
+          <Text
+            style={[
+              typography.h1,
+              {color: colors.primary.navy, fontWeight: '700'},
+            ]}>
             Stronger Oversight.
           </Text>
         </View>
@@ -114,27 +135,50 @@ export const AttendanceDashboard = ({ navigation }: TabScreenProps<'Attendance'>
               onPress: () => {},
               icon: 'calendar',
             }}
-            style={{ marginTop: spacing.lg }}
+            style={{marginTop: spacing.lg}}
           />
 
-          <View style={[styles.datePillRow, { marginBottom: spacing.md }]}>
-            <View style={[styles.datePill, { backgroundColor: '#D6E3F1', borderRadius: radius.md }]}>
-              <Icon name="calendar-today" size={14} color={colors.primary.navy} style={{ marginRight: 4 }} />
-              <Text style={[typography.bodySmall, { color: colors.primary.navy, fontWeight: '600' }]}>
+          <View style={[styles.datePillRow, {marginBottom: spacing.md}]}>
+            <View
+              style={[
+                styles.datePill,
+                {backgroundColor: '#D6E3F1', borderRadius: radius.md},
+              ]}>
+              <Icon
+                name="calendar-today"
+                size={14}
+                color={colors.primary.navy}
+                style={{marginRight: 4}}
+              />
+              <Text
+                style={[
+                  typography.bodySmall,
+                  {color: colors.primary.navy, fontWeight: '600'},
+                ]}>
                 {todayLabel}
               </Text>
             </View>
           </View>
 
           {todayCheckIn ? (
-            <View style={{ marginBottom: spacing.md }}>
-              <Text style={[typography.body, { color: colors.text.secondary }]}>
-                {currentUser?.projectSite ?? 'NH-48 Delhi-Jaipur'} • Checked in at {formatTime(todayCheckIn.timestamp)}
+            <View style={{marginBottom: spacing.md}}>
+              <Text style={[typography.body, {color: colors.text.secondary}]}>
+                {currentUser?.projectSite ?? 'NH-48 Delhi-Jaipur'} • Checked in
+                at {formatTime(todayCheckIn.timestamp)}
               </Text>
-              <StatusBadge variant="success" label="Present" icon="check-circle" style={{ marginTop: 8 }} />
+              <StatusBadge
+                variant="success"
+                label="Present"
+                icon="check-circle"
+                style={{marginTop: 8}}
+              />
             </View>
           ) : (
-            <Text style={[typography.body, { color: colors.text.secondary, marginBottom: spacing.md }]}>
+            <Text
+              style={[
+                typography.body,
+                {color: colors.text.secondary, marginBottom: spacing.md},
+              ]}>
               You haven't marked attendance today.
             </Text>
           )}
@@ -147,58 +191,97 @@ export const AttendanceDashboard = ({ navigation }: TabScreenProps<'Attendance'>
         </Card>
 
         {/* Card 2: Overview Stats */}
-        <Card padding={16} style={{ marginTop: spacing.lg }}>
+        <Card padding={16} style={{marginTop: spacing.lg}}>
           <SectionHeader
             title="My Overview"
-            rightAction={{ label: 'Last 7 Days', onPress: () => {}, icon: 'chevron-down' }}
+            rightAction={{
+              label: 'Last 7 Days',
+              onPress: () => {},
+              icon: 'chevron-down',
+            }}
           />
           <StatsCard
             columns={2}
             stats={[
-              { value: stats.presentDays, label: 'Total Present Days' },
-              { value: stats.absentDays, label: 'Total Absents', color: stats.absentDays === '0' ? colors.accent.green : colors.accent.red },
-              { value: stats.avgHours, label: 'Avg. working hours' },
-              { value: stats.attendancePct, label: 'Attendance %age', color: colors.accent.green },
+              {value: stats.presentDays, label: 'Total Present Days'},
+              {
+                value: stats.absentDays,
+                label: 'Total Absents',
+                color:
+                  stats.absentDays === '0'
+                    ? colors.accent.green
+                    : colors.accent.red,
+              },
+              {value: stats.avgHours, label: 'Avg. working hours'},
+              {
+                value: stats.attendancePct,
+                label: 'Attendance %age',
+                color: colors.accent.green,
+              },
             ]}
           />
         </Card>
 
         {/* Card 3: Attendance Report */}
-        <Card padding={0} style={{ marginTop: spacing.lg }}>
+        <Card padding={0} style={{marginTop: spacing.lg}}>
           <SectionHeader
             title="My Attendance Report"
-            style={{ paddingHorizontal: 16 }}
+            style={{paddingHorizontal: 16}}
           />
 
-          {recentList.map((record) => {
+          {recentList.map(record => {
             const checkOut = findCheckOut(record);
             return (
               <View
                 key={record.id}
-                style={[styles.reportRow, { borderBottomColor: colors.border.default }]}
-              >
-                <View style={[styles.datePillSmall, { backgroundColor: '#D6E3F1', borderRadius: radius.sm }]}>
-                  <Text style={[typography.caption, { color: colors.primary.navy, fontWeight: '700' }]}>
+                style={[
+                  styles.reportRow,
+                  {borderBottomColor: colors.border.default},
+                ]}>
+                <View
+                  style={[
+                    styles.datePillSmall,
+                    {backgroundColor: '#D6E3F1', borderRadius: radius.sm},
+                  ]}>
+                  <Text
+                    style={[
+                      typography.caption,
+                      {color: colors.primary.navy, fontWeight: '700'},
+                    ]}>
                     {formatDateShort(record.timestamp)}
                   </Text>
                 </View>
                 <View style={styles.reportInfo}>
-                  <Text style={[typography.bodySmall, { color: colors.primary.navy, fontWeight: '600' }]}>
+                  <Text
+                    style={[
+                      typography.bodySmall,
+                      {color: colors.primary.navy, fontWeight: '600'},
+                    ]}>
                     In: {formatTime(record.timestamp)}
                   </Text>
-                  <Text style={[typography.caption, { color: colors.text.secondary }]}>
-                    {checkOut ? `Out: ${formatTime(checkOut.timestamp)}` : 'No checkout'}
+                  <Text
+                    style={[
+                      typography.caption,
+                      {color: colors.text.secondary},
+                    ]}>
+                    {checkOut
+                      ? `Out: ${formatTime(checkOut.timestamp)}`
+                      : 'No checkout'}
                   </Text>
                 </View>
-                <Icon name="chevron-right" size={20} color={colors.text.tertiary} />
+                <Icon
+                  name="chevron-right"
+                  size={20}
+                  color={colors.text.tertiary}
+                />
               </View>
             );
           })}
 
-          <View style={{ height: spacing.md }} />
+          <View style={{height: spacing.md}} />
         </Card>
 
-        <View style={{ height: 20 }} />
+        <View style={{height: 20}} />
       </ScrollView>
     </GradientBackground>
   );

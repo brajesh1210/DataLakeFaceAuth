@@ -1,53 +1,93 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, StatusBar } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { useTheme } from '@theme/ThemeContext';
-import { GradientBackground } from '@components/ui/GradientBackground';
-import { Card } from '@components/ui/Card';
-import { NHAIHeader } from '@components/branding/NHAIHeader';
-import { DigitalIndiaBadge } from '@components/branding/DigitalIndiaBadge';
-import type { RootStackScreenProps } from '@navigation/navigationTypes';
+import React, {useEffect} from 'react';
+import {StyleSheet, View, Text, StatusBar} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
+import {useTheme} from '@theme/ThemeContext';
+import {GradientBackground} from '@components/ui/GradientBackground';
+import {Card} from '@components/ui/Card';
+import {NHAIHeader} from '@components/branding/NHAIHeader';
+import {DigitalIndiaBadge} from '@components/branding/DigitalIndiaBadge';
+import type {RootStackScreenProps} from '@navigation/navigationTypes';
+import {initializeServices} from '../services/ServiceInitializer';
 
-export const SplashScreen = ({ navigation }: RootStackScreenProps<'Splash'>) => {
-  const { colors, typography, spacing } = useTheme();
+export const SplashScreen = ({navigation}: RootStackScreenProps<'Splash'>) => {
+  const {colors, typography, spacing} = useTheme();
   const fadeIn = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: fadeIn.value,
-    transform: [{ translateY: (1 - fadeIn.value) * 20 }],
+    transform: [{translateY: (1 - fadeIn.value) * 20}],
   }));
 
+  const [initMsg, setInitMsg] = React.useState('Initializing...');
+  const [initError, setInitError] = React.useState<string | null>(null);
+
   useEffect(() => {
-    fadeIn.value = withTiming(1, { duration: 800 });
+    fadeIn.value = withTiming(1, {duration: 800});
 
-    const timer = setTimeout(() => {
-      navigation.replace('Login');
-    }, 2500);
-
-    return () => clearTimeout(timer);
+    initializeServices()
+      .then((result: any) => {
+        if (result.errors && result.errors.length > 0) {
+          setInitError(result.errors.join('\n'));
+        } else {
+          setInitMsg('Ready!');
+          setTimeout(() => {
+            navigation.replace('Login');
+          }, 500);
+        }
+      })
+      .catch((e: any) => {
+        console.error(e);
+        setInitError('Failed to initialize');
+      });
   }, [fadeIn, navigation]);
 
   return (
     <GradientBackground colors={['#D6E3F1', '#E8F1FB', '#FFFFFF']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent
+      />
       <View style={styles.container}>
         <Animated.View style={[styles.cardWrapper, animatedStyle]}>
           <Card padding={32} style={styles.card}>
             <NHAIHeader />
 
             <View style={styles.titleSection}>
-              <Text style={[typography.body, { color: colors.text.secondary, marginBottom: 4 }]}>
+              <Text
+                style={[
+                  typography.body,
+                  {color: colors.text.secondary, marginBottom: 4},
+                ]}>
                 Welcome to
               </Text>
-              <Text style={[typography.h1, { color: colors.primary.navy, fontSize: 32, fontWeight: '700' }]}>
+              <Text
+                style={[
+                  typography.h1,
+                  {color: colors.primary.navy, fontSize: 32, fontWeight: '700'},
+                ]}>
                 DataLake 3.0
               </Text>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: colors.border.default }]} />
+            <View
+              style={[styles.divider, {backgroundColor: colors.border.default}]}
+            />
 
-            <Text style={[typography.bodySmall, { color: colors.text.secondary, textAlign: 'center', marginBottom: spacing.lg }]}>
-              Field Authentication & Attendance System
+            <Text
+              style={[
+                typography.bodySmall,
+                {
+                  color: initError ? colors.accent.red : colors.text.secondary,
+                  textAlign: 'center',
+                  marginBottom: spacing.lg,
+                },
+              ]}>
+              {initError ? `Error: ${initError}` : initMsg}
             </Text>
 
             <DigitalIndiaBadge />

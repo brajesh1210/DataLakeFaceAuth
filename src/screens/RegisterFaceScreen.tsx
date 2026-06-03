@@ -1,473 +1,449 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, {useState, useCallback, useRef} from 'react';
 import {
-  StyleSheet,
   View,
   Text,
+  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
   Alert,
   Dimensions,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  Easing,
-} from 'react-native-reanimated';
-import Svg, { Ellipse } from 'react-native-svg';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {GradientBackground} from '@components/ui/GradientBackground';
+import {AppHeader} from '@components/ui/AppHeader';
+import {Card} from '@components/ui/Card';
+import {PrimaryButton} from '@components/ui/PrimaryButton';
+import {SecondaryButton} from '@components/ui/SecondaryButton';
+import {FloatingInput} from '@components/ui/FloatingInput';
+import {Dropdown} from '@components/ui/Dropdown';
+import {ProgressBar} from '@components/ui/ProgressBar';
+import {StatusBadge} from '@components/ui/StatusBadge';
+import {SectionHeader} from '@components/ui/SectionHeader';
+import {FaceCamera} from '@components/Camera/FaceCamera';
+import {FaceCameraOverlay} from '@components/Camera/FaceCameraOverlay';
+import {useTheme} from '@theme/ThemeContext';
+import {useAppStore} from '@store/useAppStore';
+import {
+  FaceRecognitionService,
+  type FaceLandmarks,
+} from '@services/FaceRecognitionService';
+import {FaceDetection, cropFaceFromFrame} from '@services/FaceDetectionService';
+import type {RootStackParamList} from '@navigation/navigationTypes';
 import LinearGradient from 'react-native-linear-gradient';
-import { useTheme } from '@theme/ThemeContext';
-import { GradientBackground } from '@components/ui/GradientBackground';
-import { Card } from '@components/ui/Card';
-import { AppHeader } from '@components/ui/AppHeader';
-import { SectionHeader } from '@components/ui/SectionHeader';
-import { FloatingInput } from '@components/ui/FloatingInput';
-import { Dropdown } from '@components/ui/Dropdown';
-import { PrimaryButton } from '@components/ui/PrimaryButton';
-import { SecondaryButton } from '@components/ui/SecondaryButton';
-import { ProgressBar } from '@components/ui/ProgressBar';
-import { StatusBadge } from '@components/ui/StatusBadge';
-import { useAppStore } from '@store/useAppStore';
-import type { RootStackScreenProps } from '@navigation/navigationTypes';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// ─── Constants ──────────────────────────────────────────────────
+const POSE_INSTRUCTIONS = [
+  {en: 'Look straight at camera', hi: 'कैमरे की ओर सीधा देखें'},
+  {en: 'Turn left slightly', hi: 'थोड़ा बाएं घुमें'},
+  {en: 'Turn right slightly', hi: 'थोड़ा दाएं घुमें'},
+  {en: 'Look up slightly', hi: 'थोड़ा ऊपर देखें'},
+  {en: 'Smile naturally', hi: 'स्वाभाविक रूप से मुस्कुराएं'},
+];
 
 const DEPARTMENTS = [
-  { label: 'Field Engineer', value: 'Field Engineer' },
-  { label: 'Surveyor', value: 'Surveyor' },
-  { label: 'Inspector', value: 'Inspector' },
-  { label: 'Supervisor', value: 'Supervisor' },
-  { label: 'Site Manager', value: 'Site Manager' },
+  {label: 'Field Engineer', value: 'field_engineer'},
+  {label: 'Surveyor', value: 'surveyor'},
+  {label: 'Inspector', value: 'inspector'},
+  {label: 'Supervisor', value: 'supervisor'},
+  {label: 'Site Manager', value: 'site_manager'},
 ];
 
 const PROJECT_SITES = [
-  { label: 'NH-48 Delhi-Jaipur', value: 'NH-48 Delhi-Jaipur' },
-  { label: 'NH-44 Delhi-Agra', value: 'NH-44 Delhi-Agra' },
-  { label: 'NH-66 Mumbai-Goa', value: 'NH-66 Mumbai-Goa' },
-  { label: 'NH-8 Delhi-Mumbai', value: 'NH-8 Delhi-Mumbai' },
-  { label: 'NH-2 Delhi-Kolkata', value: 'NH-2 Delhi-Kolkata' },
-  { label: 'NH-16 Chennai-Kolkata', value: 'NH-16 Chennai-Kolkata' },
+  {label: 'NH-48 Delhi-Jaipur', value: 'NH-48'},
+  {label: 'NH-44 Delhi-Agra', value: 'NH-44'},
+  {label: 'NH-66 Mumbai-Goa', value: 'NH-66'},
+  {label: 'NH-8 Delhi-Mumbai', value: 'NH-8'},
+  {label: 'NH-2 Delhi-Kolkata', value: 'NH-2'},
 ];
 
-const POSE_INSTRUCTIONS: { en: string; hi: string }[] = [
-  { en: 'Look straight at camera', hi: 'कैमरे की ओर सीधा देखें' },
-  { en: 'Turn left slightly', hi: 'थोड़ा बाएं घुमें' },
-  { en: 'Turn right slightly', hi: 'थोड़ा दाएं घुमें' },
-  { en: 'Look up slightly', hi: 'थोड़ा ऊपर देखें' },
-  { en: 'Smile naturally', hi: 'स्वाभाविक रूप से मुस्कुराएं' },
+const GRADIENT_COLORS = [
+  ['#667eea', '#764ba2'],
+  ['#f093fb', '#f5576c'],
+  ['#4facfe', '#00f2fe'],
+  ['#43e97b', '#38f9d7'],
 ];
 
-const GRADIENT_PALETTES = [
-  ['#0A3D7A', '#1976D2'],
-  ['#1976D2', '#42A5F5'],
-  ['#F57C00', '#FFB74D'],
-  ['#388E3C', '#66BB6A'],
-];
+export const RegisterFaceScreen: React.FC = () => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const {colors, spacing, typography} = useTheme();
+  const registerUser = useAppStore(state => state.registerUser);
+  const previewSize = Dimensions.get('window');
 
-// ─── Progress Dots ──────────────────────────────────────────────
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
-const ProgressDots = ({ current }: { current: number }) => {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.dotsRow}>
-      {[0, 1, 2].map(i => (
+  // Form state
+  const [name, setName] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [department, setDepartment] = useState<string | null>(null);
+  const [projectSite, setProjectSite] = useState<string | null>(null);
+  const [mobile, setMobile] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Capture state
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [embeddings, setEmbeddings] = useState<Float32Array[]>([]);
+  const [lastDetection, setLastDetection] = useState<FaceDetection | null>(
+    null,
+  );
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [captureMessage, setCaptureMessage] = useState('');
+  const [qualityOK, setQualityOK] = useState(false);
+  const lastCaptureTime = useRef(0);
+
+  // Final state
+  const [finalEmbedding, setFinalEmbedding] = useState<Float32Array | null>(
+    null,
+  );
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!name.trim()) {newErrors.name = 'Name is required';}
+    if (!employeeId.match(/^[A-Z0-9]{4,10}$/)) {
+      newErrors.employeeId = 'Employee ID must be 4-10 alphanumeric chars';
+    }
+    if (!department) {newErrors.department = 'Department required';}
+    if (!projectSite) {newErrors.projectSite = 'Project site required';}
+    if (!mobile.match(/^[0-9]{10}$/)) {
+      newErrors.mobile = 'Mobile must be exactly 10 digits';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleFaceDetected = useCallback(
+    async (face: any | null) => {
+      if (!face) {
+        setLastDetection(null);
+        setQualityOK(false);
+        return;
+      }
+
+      // Convert ML Kit bounds to our format for overlay
+      const detection = {
+        boundingBox: {
+          xCenter: face.bounds.x + face.bounds.width / 2,
+          yCenter: face.bounds.y + face.bounds.height / 2,
+          width: face.bounds.width,
+          height: face.bounds.height,
+        },
+        score: 1.0,
+        keypoints: [],
+      };
+      // Type coercion to satisfy the overlay props
+      setLastDetection(detection as any);
+
+      const isQualityOK = face.bounds.width > 100; // ML Kit width threshold
+      setQualityOK(isQualityOK);
+
+      const now = Date.now();
+      if (
+        isQualityOK &&
+        !isProcessing &&
+        now - lastCaptureTime.current > 1500 &&
+        currentFrame < 5
+      ) {
+        lastCaptureTime.current = now;
+        setIsProcessing(true);
+        setCaptureMessage('Processing...');
+
+        try {
+          const getLandmark = (type: string) => {
+            const lms = face.landmarks;
+            if (!lms) return { x: 0, y: 0 };
+            
+            // ML Kit Android: object format
+            if (typeof lms === 'object' && !Array.isArray(lms)) {
+              const point = lms[type];
+              if (point) return { x: point.x ?? 0, y: point.y ?? 0 };
+              return { x: 0, y: 0 };
+            }
+            
+            // ML Kit iOS or other: array format
+            if (Array.isArray(lms)) {
+              const lm = lms.find((l: any) => l.type === type);
+              return lm?.position || { x: 0, y: 0 };
+            }
+            
+            return { x: 0, y: 0 };
+          };
+
+          const faceLandmarks: FaceLandmarks = {
+            leftEye: getLandmark('LEFT_EYE'),
+            rightEye: getLandmark('RIGHT_EYE'),
+            nose: getLandmark('NOSE_BASE'),
+            mouth: getLandmark('MOUTH_BOTTOM'),
+            leftEarTragion: getLandmark('LEFT_EAR'),
+            rightEarTragion: getLandmark('RIGHT_EAR'),
+          };
+
+          const dummyPixels = new Uint8Array(128 * 128 * 4);
+          const embedding = await FaceRecognitionService.generateEmbedding(
+            dummyPixels,
+            faceLandmarks,
+            128,
+            128
+          );
+
+          setEmbeddings(prev => {
+            const updated = [...prev, embedding];
+            if (updated.length >= 5) {
+              const averaged = FaceRecognitionService.averageEmbeddings(updated);
+              setFinalEmbedding(averaged);
+              setTimeout(() => setStep(3), 500);
+            }
+            return updated;
+          });
+          setCurrentFrame(prev => prev + 1);
+        } catch (error) {
+          console.error('[Register] Capture failed:', error);
+        } finally {
+          setIsProcessing(false);
+          setCaptureMessage('');
+        }
+      }
+    },
+    [currentFrame, isProcessing],
+  );
+
+  const handleRegister = async () => {
+    if (embeddings.length === 0 || !finalEmbedding) {return;}
+
+    setIsRegistering(true);
+    try {
+      const avgEmbedding = FaceRecognitionService.averageEmbeddings(embeddings);
+      const user = {
+        name: name.trim(),
+        employeeId,
+        department: DEPARTMENTS.find(d => d.value === department)?.label || '',
+        projectSite:
+          PROJECT_SITES.find(p => p.value === projectSite)?.label || '',
+        mobile,
+      };
+
+      await registerUser(user, finalEmbedding);
+
+      Alert.alert(
+        'Registration Successful',
+        `${name} has been registered successfully.`,
+        [{text: 'OK', onPress: () => navigation.goBack()}],
+      );
+    } catch (error: any) {
+      console.error('[Register] Failed:', error);
+      Alert.alert('Registration Failed', error.message || 'Unknown error');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const getInitials = (fullName: string): string => {
+    return fullName
+      .split(' ')
+      .map(n => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
+
+  const getAvatarColor = (fullName: string) => {
+    const hash = fullName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return GRADIENT_COLORS[hash % GRADIENT_COLORS.length];
+  };
+
+  const renderProgressDots = () => (
+    <View style={styles.dotsContainer}>
+      {[1, 2, 3].map(n => (
         <View
-          key={i}
+          key={n}
           style={[
             styles.dot,
             {
-              backgroundColor: i <= current ? colors.primary.navy : 'transparent',
-              borderColor: i <= current ? colors.primary.navy : colors.text.tertiary,
+              backgroundColor: n <= step ? colors.primary.navy : 'transparent',
+              borderColor: colors.primary.navy,
             },
           ]}
         />
       ))}
     </View>
   );
-};
-
-// ─── Main Component ─────────────────────────────────────────────
-
-export const RegisterFaceScreen = ({ navigation }: RootStackScreenProps<'RegisterFace'>) => {
-  const { colors, typography, spacing, radius } = useTheme();
-  const { registerUser } = useAppStore();
-
-  const [step, setStep] = useState(0);
-
-  // Step 1 form state
-  const [fullName, setFullName] = useState('');
-  const [employeeId, setEmployeeId] = useState('');
-  const [department, setDepartment] = useState<string | null>(null);
-  const [projectSite, setProjectSite] = useState<string | null>(null);
-  const [mobile, setMobile] = useState('');
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  // Step 2 capture state
-  const [currentFrame, setCurrentFrame] = useState(0);
-  const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Pulse animation for face guide
-  const pulseOpacity = useSharedValue(0.5);
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: pulseOpacity.value,
-  }));
-
-  useEffect(() => {
-    pulseOpacity.value = withRepeat(
-      withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-  }, [pulseOpacity]);
-
-  // Step 2 auto-advance logic
-  useEffect(() => {
-    if (step === 1) {
-      setCurrentFrame(0);
-      frameIntervalRef.current = setInterval(() => {
-        setCurrentFrame(prev => {
-          if (prev >= 4) {
-            if (frameIntervalRef.current) {
-              clearInterval(frameIntervalRef.current);
-              frameIntervalRef.current = null;
-            }
-            // Advance to step 3
-            setTimeout(() => setStep(2), 500);
-            return 5;
-          }
-          return prev + 1;
-        });
-      }, 1500);
-    }
-
-    return () => {
-      if (frameIntervalRef.current) {
-        clearInterval(frameIntervalRef.current);
-        frameIntervalRef.current = null;
-      }
-    };
-  }, [step]);
-
-  // ── Validation ──────────────────────────────────────────────
-
-  const validateStep1 = useCallback((): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!fullName.trim()) {
-      errors.fullName = 'Full name is required';
-    }
-
-    const empId = employeeId.trim();
-    if (!empId) {
-      errors.employeeId = 'Employee ID is required';
-    } else if (!/^[A-Za-z0-9]{4,10}$/.test(empId)) {
-      errors.employeeId = 'Must be 4-10 alphanumeric characters';
-    }
-
-    if (!department) {
-      errors.department = 'Please select a department';
-    }
-
-    if (!projectSite) {
-      errors.projectSite = 'Please select a project site';
-    }
-
-    const mob = mobile.trim();
-    if (!mob) {
-      errors.mobile = 'Mobile number is required';
-    } else if (!/^\d{10}$/.test(mob)) {
-      errors.mobile = 'Must be exactly 10 digits';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  }, [fullName, employeeId, department, projectSite, mobile]);
-
-  const handleProceedToCapture = useCallback(() => {
-    if (validateStep1()) {
-      setStep(1);
-    }
-  }, [validateStep1]);
-
-  const handleConfirmRegistration = useCallback(() => {
-    registerUser({
-      name: fullName.trim(),
-      employeeId: employeeId.trim().toUpperCase(),
-      department: department as string,
-      projectSite: projectSite as string,
-      mobile: mobile.trim(),
-    });
-
-    Alert.alert(
-      'Registration Successful! ✅',
-      `${fullName.trim()} has been registered for face authentication.`,
-      [{ text: 'OK', onPress: () => navigation.goBack() }],
-    );
-  }, [fullName, employeeId, department, projectSite, mobile, registerUser, navigation]);
-
-  // ── Get initials and gradient ───────────────────────────────
-
-  const initials = fullName
-    .trim()
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
-  const gradientIdx =
-    fullName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % GRADIENT_PALETTES.length;
-  const avatarGradient = GRADIENT_PALETTES[gradientIdx];
-
-  // ── Header titles per step ──────────────────────────────────
-
-  const headerTitles = ['Register New Field Staff', 'Capture Face', 'Confirm Registration'];
-
-  // ═══════════════════════════════════════════════════════════
 
   return (
     <GradientBackground>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <AppHeader
-        title={headerTitles[step]}
-        onBack={() => {
-          if (step > 0) {
-            if (step === 1 && frameIntervalRef.current) {
-              clearInterval(frameIntervalRef.current);
-              frameIntervalRef.current = null;
-            }
-            setStep(step - 1);
-          } else {
-            navigation.goBack();
-          }
-        }}
+        title="Register New Field Staff"
+        onBack={() => navigation.goBack()}
       />
 
-      <ProgressDots current={step} />
+      {renderProgressDots()}
 
-      {/* ─── STEP 1: Personal Info ─────────────────────────── */}
-      {step === 0 && (
+      {step === 1 && (
         <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Card padding={20}>
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <Card style={styles.card}>
               <SectionHeader title="Personal Information" />
-
-              <View style={{ height: spacing.md }} />
-
               <FloatingInput
                 label="Full Name"
-                value={fullName}
-                onChangeText={setFullName}
+                value={name}
+                onChangeText={setName}
+                error={errors.name}
                 autoCapitalize="words"
-                error={formErrors.fullName}
               />
-
-              <View style={{ height: spacing.lg }} />
-
               <FloatingInput
                 label="Employee ID"
                 value={employeeId}
-                onChangeText={(t) => setEmployeeId(t.slice(0, 10))}
+                onChangeText={text => setEmployeeId(text.toUpperCase())}
+                error={errors.employeeId}
+                maxLength={10}
                 autoCapitalize="characters"
-                error={formErrors.employeeId}
               />
-
-              <View style={{ height: spacing.lg }} />
-
               <Dropdown
                 label="Department"
                 value={department}
                 options={DEPARTMENTS}
                 onChange={setDepartment}
-                error={formErrors.department}
+                error={errors.department}
               />
-
-              <View style={{ height: spacing.lg }} />
-
               <Dropdown
                 label="Project Site"
                 value={projectSite}
                 options={PROJECT_SITES}
                 onChange={setProjectSite}
-                error={formErrors.projectSite}
+                error={errors.projectSite}
               />
-
-              <View style={{ height: spacing.lg }} />
-
               <FloatingInput
                 label="Mobile Number"
                 value={mobile}
-                onChangeText={(t) => setMobile(t.replace(/[^0-9]/g, '').slice(0, 10))}
+                onChangeText={setMobile}
+                error={errors.mobile}
                 keyboardType="numeric"
-                error={formErrors.mobile}
+                maxLength={10}
               />
-
-              <View style={{ height: spacing.xl }} />
-
               <PrimaryButton
                 title="Proceed to Face Capture →"
-                icon="arrow-right"
-                onPress={handleProceedToCapture}
+                onPress={() => validateForm() && setStep(2)}
+                fullWidth
               />
             </Card>
           </ScrollView>
         </KeyboardAvoidingView>
       )}
 
-      {/* ─── STEP 2: Mock Face Capture ─────────────────────── */}
-      {step === 1 && (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Mock Camera */}
-          <Card padding={0} style={{ overflow: 'hidden' }}>
-            <View style={styles.cameraView}>
-              <Text style={styles.faceEmoji}>😊</Text>
-              <Animated.View style={[styles.svgOverlay, pulseStyle]}>
-                <Svg width={240} height={320}>
-                  <Ellipse
-                    cx={120}
-                    cy={160}
-                    rx={100}
-                    ry={140}
-                    stroke={colors.primary.navy}
-                    strokeWidth={3}
-                    strokeDasharray="10,5"
-                    fill="none"
-                  />
-                </Svg>
-              </Animated.View>
-            </View>
-          </Card>
-
-          {/* Instruction Card */}
-          <Card padding={16} style={{ marginTop: spacing.md }}>
-            <Text style={[typography.h4, { color: colors.primary.navy, textAlign: 'center' }]}>
-              {currentFrame < 5
-                ? POSE_INSTRUCTIONS[currentFrame].en
-                : POSE_INSTRUCTIONS[4].en}
-            </Text>
-            <Text
-              style={[
-                typography.body,
-                { color: colors.text.secondary, textAlign: 'center', marginTop: 4 },
-              ]}
-            >
-              {currentFrame < 5
-                ? POSE_INSTRUCTIONS[currentFrame].hi
-                : POSE_INSTRUCTIONS[4].hi}
-            </Text>
-          </Card>
-
-          {/* Progress */}
-          <View style={{ marginTop: spacing.md }}>
-            <ProgressBar
-              progress={Math.min(currentFrame + 1, 5) / 5}
-              label="Capture Progress"
-              showPercentage
-              color={colors.accent.green}
-            />
-            <Text
-              style={[
-                typography.bodySmall,
-                { color: colors.text.secondary, textAlign: 'center', marginTop: spacing.sm },
-              ]}
-            >
-              Frame {Math.min(currentFrame + 1, 5)} of 5 captured
-            </Text>
-          </View>
-
-          {/* Quality Indicators */}
-          <View style={styles.qualityRow}>
-            <StatusBadge variant="success" label="💡 Lighting" icon="check-circle" />
-            <StatusBadge variant="success" label="📏 Distance" icon="check-circle" />
-            <StatusBadge variant="success" label="🎯 Position" icon="check-circle" />
-          </View>
-
-          <SecondaryButton
-            title="Cancel"
-            onPress={() => {
-              if (frameIntervalRef.current) {
-                clearInterval(frameIntervalRef.current);
-                frameIntervalRef.current = null;
-              }
-              setStep(0);
-            }}
-            style={{ marginTop: spacing.lg }}
+      {step === 2 && (
+        <View style={styles.cameraContainer}>
+          <FaceCamera
+            isActive={true}
+            onFaceDetected={handleFaceDetected}
+          />
+          <FaceCameraOverlay
+            detections={lastDetection ? [lastDetection] : []}
+            previewWidth={previewSize.width}
+            previewHeight={previewSize.height * 0.55}
+            faceInPosition={qualityOK}
           />
 
-          <View style={{ height: 20 }} />
-        </ScrollView>
+          <View style={styles.captureInstructions}>
+            <Card style={styles.instructionCard}>
+              <Text
+                style={[
+                  typography.h4,
+                  {color: colors.primary.navy, textAlign: 'center'},
+                ]}>
+                {POSE_INSTRUCTIONS[Math.min(currentFrame, 4)].en}
+              </Text>
+              <Text
+                style={[
+                  typography.body,
+                  {
+                    color: colors.text.secondary,
+                    textAlign: 'center',
+                    marginTop: 4,
+                  },
+                ]}>
+                {POSE_INSTRUCTIONS[Math.min(currentFrame, 4)].hi}
+              </Text>
+
+              <View style={{marginTop: spacing.md}}>
+                <Text
+                  style={[
+                    typography.bodySmall,
+                    {color: colors.text.secondary},
+                  ]}>
+                  Frame {currentFrame} of 5 captured
+                </Text>
+                <ProgressBar progress={currentFrame / 5} />
+              </View>
+
+              <View style={styles.qualityRow}>
+                <StatusBadge
+                  label="💡 Lighting"
+                  variant={qualityOK ? 'success' : 'neutral'}
+                />
+                <StatusBadge
+                  label="📏 Distance"
+                  variant={qualityOK ? 'success' : 'neutral'}
+                />
+                <StatusBadge
+                  label="🎯 Position"
+                  variant={qualityOK ? 'success' : 'neutral'}
+                />
+              </View>
+            </Card>
+
+            <SecondaryButton title="Cancel" onPress={() => setStep(1)} />
+          </View>
+        </View>
       )}
 
-      {/* ─── STEP 3: Confirmation ──────────────────────────── */}
-      {step === 2 && (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Card padding={24} style={{ alignItems: 'center' }}>
-            {/* Avatar */}
-            <LinearGradient
-              colors={avatarGradient}
-              style={styles.avatarCircle}
-            >
-              <Text style={styles.avatarText}>{initials || '??'}</Text>
-            </LinearGradient>
+      {step === 3 && (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Card style={styles.card}>
+            <View style={styles.confirmContent}>
+              <LinearGradient
+                colors={getAvatarColor(name)}
+                style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitials(name)}</Text>
+              </LinearGradient>
+              <Text
+                style={[
+                  typography.h3,
+                  {color: colors.primary.navy, marginTop: spacing.md},
+                ]}>
+                {name}
+              </Text>
+              <Text
+                style={[typography.bodySmall, {color: colors.text.secondary}]}>
+                {employeeId}
+              </Text>
+              <Text style={[typography.body, {color: colors.primary.navy}]}>
+                {DEPARTMENTS.find(d => d.value === department)?.label}
+              </Text>
 
-            <Text style={[typography.h3, { color: colors.primary.navy, marginTop: spacing.lg }]}>
-              {fullName.trim()}
-            </Text>
-            <Text style={[typography.bodySmall, { color: colors.text.secondary, marginTop: 4 }]}>
-              {employeeId.trim().toUpperCase()}
-            </Text>
-            <Text style={[typography.body, { color: colors.primary.navy, marginTop: 4 }]}>
-              {department}
-            </Text>
-            <Text style={[typography.bodySmall, { color: colors.text.secondary, marginTop: 4 }]}>
-              {projectSite}
-            </Text>
-
-            <View style={[styles.divider, { backgroundColor: colors.border.default }]} />
-
-            <View style={styles.badgesRow}>
-              <StatusBadge variant="success" label="Enrollment Quality: 94%" icon="check-circle" />
+              <View style={styles.badgeRow}>
+                <StatusBadge label="Quality: 94%" variant="success" />
+                <StatusBadge label="5 Frames" variant="info" />
+              </View>
             </View>
-            <View style={{ height: 6 }} />
-            <StatusBadge variant="info" label="5 Frames Captured" icon="camera" />
-          </Card>
 
-          <View style={styles.buttonRow}>
             <SecondaryButton
               title="Retake Photos"
-              icon="camera-retake"
-              onPress={() => setStep(1)}
-              fullWidth={false}
-              style={{ flex: 1, marginRight: 8 }}
+              onPress={() => {
+                setStep(2);
+                setCurrentFrame(0);
+                setEmbeddings([]);
+                setFinalEmbedding(null);
+              }}
             />
             <PrimaryButton
-              title="Confirm"
-              icon="check"
-              onPress={handleConfirmRegistration}
-              fullWidth={false}
-              style={{ flex: 1, marginLeft: 8 }}
+              title="Confirm Registration"
+              onPress={handleRegister}
+              loading={isRegistering}
+              fullWidth
             />
-          </View>
-
-          <View style={{ height: 20 }} />
+          </Card>
         </ScrollView>
       )}
     </GradientBackground>
@@ -475,18 +451,13 @@ export const RegisterFaceScreen = ({ navigation }: RootStackScreenProps<'Registe
 };
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  dotsRow: {
+  flex: {flex: 1},
+  scrollContent: {padding: 16},
+  card: {marginBottom: 16},
+  dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     gap: 12,
   },
   dot: {
@@ -495,29 +466,25 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 2,
   },
-  cameraView: {
-    width: '100%',
-    aspectRatio: 3 / 4,
-    backgroundColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  faceEmoji: {
-    fontSize: 60,
-  },
-  svgOverlay: {
+  cameraContainer: {flex: 1},
+  captureInstructions: {
     position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
   },
+  instructionCard: {marginBottom: 12},
   qualityRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginTop: 12,
   },
-  avatarCircle: {
+  confirmContent: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -525,21 +492,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: 'white',
     fontSize: 28,
     fontWeight: '700',
   },
-  divider: {
-    width: '80%',
-    height: 1,
-    marginVertical: 20,
-  },
-  badgesRow: {
+  badgeRow: {
     flexDirection: 'row',
     gap: 8,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: 20,
+    marginTop: 16,
   },
 });
