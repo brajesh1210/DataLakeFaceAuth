@@ -36,12 +36,10 @@ export const FloatingInput = React.memo(({
 
   const animatedLabelStyle = useAnimatedStyle(() => {
     return {
+      fontSize: interpolate(floatingProgress.value, [0, 1], [14, 12]),
       transform: [
         {
-          translateY: interpolate(floatingProgress.value, [0, 1], [0, -12]),
-        },
-        {
-          scale: interpolate(floatingProgress.value, [0, 1], [1, 0.85]),
+          translateY: interpolate(floatingProgress.value, [0, 1], [0, -22]),
         }
       ],
       color: error 
@@ -66,11 +64,9 @@ export const FloatingInput = React.memo(({
           },
         ]}
       >
-        <Animated.View style={[styles.labelContainer, animatedLabelStyle]}>
-          <Text style={[typography.body, { color: 'inherit' as any }]}>
-            {label}
-          </Text>
-        </Animated.View>
+        <Animated.Text style={[styles.labelContainer, typography.body, animatedLabelStyle]}>
+          {label}
+        </Animated.Text>
         <TextInput
           style={[styles.input, typography.body, { color: colors.text.primary }]}
           value={value}
@@ -104,8 +100,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     top: 18,
-    transformOrigin: 'top left', // Not universally supported, but scaling from left is handled by translate if needed.
-    // To fake transform origin left in RN, we rely on the container bounds.
   },
   input: {
     height: '100%',
