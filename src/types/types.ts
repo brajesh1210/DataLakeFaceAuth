@@ -3,12 +3,32 @@ export interface User {
   name: string;
   employeeId: string;
   department: string;
+  role?: 'admin' | 'employee';
   projectSite: string;
   mobile: string;
   faceRegistered: boolean;
   registeredAt: number;
   initials: string;
   avatarColor: string;
+}
+
+export interface LeaveApplication {
+  id: string;
+  userId: string;
+  leaveType: 'Casual' | 'Sick' | 'Annual' | 'Maternity' | string;
+  date: number; // unix timestamp
+  reason?: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  appliedAt: number;
+  reviewedAt?: number;
+  reviewedBy?: string;
+}
+
+export interface DailyAttendance {
+  date: string; // YYYY-MM-DD
+  status: 'present' | 'absent' | 'leave';
+  checkInTime?: number;
+  checkOutTime?: number;
 }
 
 export interface AttendanceRecord {

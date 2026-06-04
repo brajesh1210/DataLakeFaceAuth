@@ -173,6 +173,7 @@ interface AppState {
   // Auth
   isAuthenticated: boolean;
   currentUser: User | null;
+  userRole: 'admin' | 'employee' | null;
   rememberedUsername: string;
 
   // Users (mock face database)
@@ -189,7 +190,7 @@ interface AppState {
 
   // Actions
   loadFromDatabase: () => Promise<void>;
-  login: (username: string, role: string) => void;
+  login: (user: User) => void;
   logout: () => void;
   registerUser: (
     user: Omit<
@@ -229,6 +230,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Hydrate auth
   isAuthenticated: storage.getBoolean(StorageKeys.IS_AUTHENTICATED) ?? false,
   currentUser: loadJSON<User>(StorageKeys.AUTH_USER),
+  userRole: storage.getString('userRole') as 'admin' | 'employee' | null,
   rememberedUsername: storage.getString(StorageKeys.REMEMBERED_USERNAME) ?? '',
 
   // Hydrate data
@@ -264,28 +266,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  login: (username: string, role: string) => {
-    const user: User = {
-      id: `user-${Date.now()}`,
-      name: username,
-      employeeId: `EMP${Math.floor(10000 + Math.random() * 90000)}`,
-      department: role,
-      projectSite: MOCK_PROJECT_SITES[0],
-      mobile: '0000000000',
-      faceRegistered: false, // Wait for them to register face
-      registeredAt: Date.now(),
-      initials: getInitials(username),
-      avatarColor:
-        AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-    };
-    set({isAuthenticated: true, currentUser: user});
+  login: (user: User) => {
+    set({
+      isAuthenticated: true,
+      currentUser: user,
+      userRole: user.role as 'admin' | 'employee',
+    });
     storage.set(StorageKeys.IS_AUTHENTICATED, true);
+    storage.set('userRole', user.role || 'employee');
     persistJSON(StorageKeys.AUTH_USER, user);
   },
 
   logout: () => {
-    set({isAuthenticated: false, currentUser: null});
+    set({
+      isAuthenticated: false,
+      currentUser: null,
+      userRole: null,
+    });
     storage.set(StorageKeys.IS_AUTHENTICATED, false);
+    storage.delete('userRole');
     storage.delete(StorageKeys.AUTH_USER);
   },
 

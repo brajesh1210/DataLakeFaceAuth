@@ -6,6 +6,7 @@ import NetInfo from '@react-native-community/netinfo';
 import {ThemeProvider} from '@theme/ThemeContext';
 import {AppNavigator} from '@navigation/AppNavigator';
 import {useAppStore} from '@store/useAppStore';
+import {ErrorBoundary} from '@components/ErrorBoundary';
 
 function App(): React.JSX.Element {
   // Global NetInfo listener — single source of truth for network status
@@ -20,9 +21,11 @@ function App(): React.JSX.Element {
     <GestureHandlerRootView style={{flex: 1}}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <NavigationContainer>
-            <AppNavigator />
-          </NavigationContainer>
+          <ErrorBoundary>
+            <NavigationContainer>
+              <AppNavigator />
+            </NavigationContainer>
+          </ErrorBoundary>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

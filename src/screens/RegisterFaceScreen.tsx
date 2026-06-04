@@ -9,8 +9,8 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import type {NativeStackNavigationProp, NativeStackScreenProps} from '@react-navigation/native-stack';
 import {GradientBackground} from '@components/ui/GradientBackground';
 import {AppHeader} from '@components/ui/AppHeader';
 import {Card} from '@components/ui/Card';
@@ -67,6 +67,7 @@ const GRADIENT_COLORS = [
 export const RegisterFaceScreen: React.FC = () => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<NativeStackScreenProps<RootStackParamList, 'RegisterFace'>['route']>();
   const {colors, spacing, typography} = useTheme();
   const registerUser = useAppStore(state => state.registerUser);
   const previewSize = Dimensions.get('window');
@@ -77,6 +78,7 @@ export const RegisterFaceScreen: React.FC = () => {
   const [name, setName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [department, setDepartment] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [projectSite, setProjectSite] = useState<string | null>(null);
   const [mobile, setMobile] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -97,6 +99,15 @@ export const RegisterFaceScreen: React.FC = () => {
     null,
   );
   const [isRegistering, setIsRegistering] = useState(false);
+
+  React.useEffect(() => {
+    if (route.params?.prefillName) {
+      setName(route.params.prefillName);
+      if (route.params.prefillEmpId) setEmployeeId(route.params.prefillEmpId);
+      if (route.params.prefillRole) setRole(route.params.prefillRole);
+      setStep(2); // Skip to face capture
+    }
+  }, [route.params]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -217,9 +228,9 @@ export const RegisterFaceScreen: React.FC = () => {
       const user = {
         name: name.trim(),
         employeeId,
-        department: DEPARTMENTS.find(d => d.value === department)?.label || '',
-        projectSite:
-          PROJECT_SITES.find(p => p.value === projectSite)?.label || '',
+        department: department || '',
+        role: (role || 'employee') as 'employee' | 'admin',
+        projectSite: projectSite || '',
         mobile,
       };
 

@@ -8,9 +8,13 @@ import type {
 export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
-  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
-  RegisterFace: undefined;
+  AdminPortal: undefined;
+  EmployeePortal: undefined;
   Authenticate: {testMode?: boolean} | undefined;
+  RegisterFace: { prefillName?: string; prefillEmpId?: string; prefillRole?: string } | undefined;
+  ApplyLeave: undefined;
+  MyProfile: undefined;
+  About: undefined;
 };
 
 export type TabParamList = {

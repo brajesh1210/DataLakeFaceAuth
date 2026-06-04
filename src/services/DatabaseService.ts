@@ -81,10 +81,32 @@ export class DatabaseService {
       'CREATE INDEX IF NOT EXISTS idx_attendance_synced ON attendance_records(synced);',
       'CREATE INDEX IF NOT EXISTS idx_attendance_user ON attendance_records(user_id);',
       'CREATE INDEX IF NOT EXISTS idx_attendance_time ON attendance_records(check_in_time);',
+      `CREATE TABLE IF NOT EXISTS leave_applications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        leave_type TEXT NOT NULL,
+        date INTEGER NOT NULL,
+        reason TEXT,
+        status TEXT NOT NULL DEFAULT 'Pending',
+        applied_at INTEGER NOT NULL,
+        reviewed_at INTEGER,
+        reviewed_by TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );`,
+      'CREATE INDEX IF NOT EXISTS idx_leave_user ON leave_applications(user_id);',
+      'CREATE INDEX IF NOT EXISTS idx_leave_status ON leave_applications(status);',
     ];
 
     for (const query of queries) {
       await this.db.executeSql(query);
+    }
+
+    // Safely add role column if it doesn't exist
+    try {
+      await this.db.executeSql(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'employee'`);
+    } catch (e) {
+      // Column already exists, ignore
     }
   }
 
@@ -280,6 +302,217 @@ export class DatabaseService {
       `UPDATE attendance_records SET synced = 1, synced_at = ? WHERE id IN (${placeholders})`,
       [Date.now(), ...ids],
     );
+  }
+
+  // --- Phase 5 Additions ---
+
+  async getUserByEmployeeId(empId: string): Promise<User | null> {
+    if (!this.db) {
+      return null;
+    }
+    const [results] = await this.db.executeSql(
+      'SELECT * FROM users WHERE employee_id = ? LIMIT 1',
+      [empId],
+    );
+
+    if (results.rows.length > 0) {
+      const row = results.rows.item(0);
+      return {
+        id: row.id,
+        name: row.name,
+        employeeId: row.employee_id,
+        department: row.department,
+        role: row.role,
+        projectSite: row.project_site,
+        mobile: row.mobile,
+        registeredAt: row.registered_at,
+        faceRegistered: true, // simplified assumption
+        initials: row.name ? row.name.substring(0, 2).toUpperCase() : '??',
+        avatarColor: '#1976D2',
+      };
+    }
+    return null;
+  }
+
+  async createUser(user: User): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not open');
+    }
+    await this.db.executeSql(
+      `INSERT INTO users (id, name, employee_id, department, role, registered_at, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [
+        user.id,
+        user.name,
+        user.employeeId,
+        user.department,
+        user.role || 'employee',
+        user.registeredAt,
+      ],
+    );
+  }
+
+  async createLeaveApplication(leave: any): Promise<string> {
+    if (!this.db) {
+      throw new Error('Database not open');
+    }
+    await this.db.executeSql(
+      `INSERT INTO leave_applications (id, user_id, user_name, leave_type, date, reason, status, applied_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        leave.id,
+        leave.userId,
+        leave.userName, // assuming it's available or we can just fetch
+        leave.leaveType,
+        leave.date,
+        leave.reason || null,
+        leave.status,
+        leave.appliedAt,
+      ],
+    );
+    return leave.id;
+  }
+
+  async getLeaveApplications(userId?: string): Promise<any[]> {
+    if (!this.db) {
+      return [];
+    }
+    let query = 'SELECT * FROM leave_applications';
+    let params: any[] = [];
+    if (userId) {
+      query += ' WHERE user_id = ?';
+      params.push(userId);
+    }
+    query += ' ORDER BY applied_at DESC';
+
+    const [results] = await this.db.executeSql(query, params);
+    const rows = results.rows;
+    const leaves = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows.item(i);
+      leaves.push({
+        id: row.id,
+        userId: row.user_id,
+        userName: row.user_name,
+        leaveType: row.leave_type,
+        date: row.date,
+        reason: row.reason,
+        status: row.status,
+        appliedAt: row.applied_at,
+        reviewedAt: row.reviewed_at,
+        reviewedBy: row.reviewed_by,
+      });
+    }
+    return leaves;
+  }
+
+  async updateLeaveStatus(
+    id: string,
+    status: string,
+    reviewedBy: string,
+  ): Promise<void> {
+    if (!this.db) {
+      return;
+    }
+    await this.db.executeSql(
+      `UPDATE leave_applications SET status = ?, reviewed_at = ?, reviewed_by = ? WHERE id = ?`,
+      [status, Date.now(), reviewedBy, id],
+    );
+  }
+
+  async getAttendanceByMonth(
+    userId: string,
+    year: number,
+    month: number, // 0-indexed
+  ): Promise<any[]> {
+    if (!this.db) {
+      return [];
+    }
+    
+    // Calculate start and end timestamps for the given month
+    const startDate = new Date(year, month, 1).getTime();
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
+
+    const [results] = await this.db.executeSql(
+      `SELECT * FROM attendance_records 
+       WHERE user_id = ? AND check_in_time >= ? AND check_in_time <= ?
+       ORDER BY check_in_time ASC`,
+      [userId, startDate, endDate],
+    );
+
+    const rows = results.rows;
+    const records = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows.item(i);
+      const d = new Date(row.check_in_time);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      
+      records.push({
+        date: dateStr,
+        status: 'present',
+        checkInTime: row.check_in_time,
+      });
+    }
+    return records;
+  }
+
+  async getUserCount(): Promise<number> {
+    if (!this.db) return 0;
+    const [results] = await this.db.executeSql('SELECT COUNT(*) as count FROM users');
+    return results.rows.item(0).count;
+  }
+
+  async getTodayAttendanceCount(): Promise<number> {
+    if (!this.db) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [results] = await this.db.executeSql(
+      'SELECT COUNT(DISTINCT user_id) as count FROM attendance_records WHERE check_in_time >= ?',
+      [today.getTime()]
+    );
+    return results.rows.item(0).count;
+  }
+
+  async getPendingLeavesCount(): Promise<number> {
+    if (!this.db) return 0;
+    const [results] = await this.db.executeSql(
+      "SELECT COUNT(*) as count FROM leave_applications WHERE status = 'Pending'"
+    );
+    return results.rows.item(0).count;
+  }
+
+  async getUserAttendanceStats(userId: string): Promise<{ present: number; absent: number; rate: number; lastAttendance: number | null }> {
+    if (!this.db) return { present: 0, absent: 0, rate: 0, lastAttendance: null };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    
+    // Total days elapsed in current month up to today
+    const elapsedDays = Math.max(1, now.getDate());
+
+    const [results] = await this.db.executeSql(
+      'SELECT check_in_time FROM attendance_records WHERE user_id = ? AND check_in_time >= ?',
+      [userId, startOfMonth]
+    );
+
+    const rows = results.rows;
+    const uniqueDays = new Set<string>();
+    let lastAttendance: number | null = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const ts = rows.item(i).check_in_time;
+      if (!lastAttendance || ts > lastAttendance) {
+        lastAttendance = ts;
+      }
+      const d = new Date(ts);
+      uniqueDays.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+    }
+
+    const present = uniqueDays.size;
+    const absent = elapsedDays - present;
+    const rate = Math.round((present / elapsedDays) * 100);
+
+    return { present, absent, rate, lastAttendance };
   }
 
   async clearAllData(): Promise<void> {
