@@ -15,6 +15,8 @@ export type RootStackParamList = {
   ApplyLeave: undefined;
   MyProfile: undefined;
   About: undefined;
+  SyncDetails: undefined;
+  Notifications: undefined;
 };
 
 export type TabParamList = {

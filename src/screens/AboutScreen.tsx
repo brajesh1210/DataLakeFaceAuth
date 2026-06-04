@@ -1,16 +1,18 @@
 import React from 'react';
 import {StyleSheet, View, Text, ScrollView, Image} from 'react-native';
 import {useTheme} from '@theme/ThemeContext';
+import {useNavigation} from '@react-navigation/native';
 import {NavyAppHeader} from '@components/ui/NavyAppHeader';
 import {Card} from '@components/ui/Card';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export function AboutScreen() {
   const {colors, typography} = useTheme();
+  const navigation = useNavigation();
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background.page}]}>
-      <NavyAppHeader title="About App" showBack />
+      <NavyAppHeader title="About App" showBack onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.logoContainer}>

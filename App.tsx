@@ -1,21 +1,54 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
+import {ToastAndroid, Platform} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {NavigationContainer} from '@react-navigation/native';
-import NetInfo from '@react-native-community/netinfo';
 import {ThemeProvider} from '@theme/ThemeContext';
 import {AppNavigator} from '@navigation/AppNavigator';
-import {useAppStore} from '@store/useAppStore';
 import {ErrorBoundary} from '@components/ErrorBoundary';
+import {useNetworkStatus} from '@hooks/useNetworkStatus';
+import {SyncService} from '@services/SyncService';
 
 function App(): React.JSX.Element {
-  // Global NetInfo listener — single source of truth for network status
+  const networkStatus = useNetworkStatus();
+  const prevAWSReachable = useRef(false);
+
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      useAppStore.getState().setNetworkStatus(state.isConnected ?? false);
-    });
-    return () => unsubscribe();
-  }, []);
+    const handleAutoSync = async () => {
+      // Just became AWS reachable
+      if (networkStatus.isAWSReachable && !prevAWSReachable.current) {
+        const pending = await SyncService.getPendingCount();
+        
+        if (pending > 0) {
+          // Show toast
+          if (Platform.OS === 'android') {
+            ToastAndroid.show(
+              `AWS Connected - Syncing ${pending} records...`, 
+              ToastAndroid.LONG
+            );
+          }
+          
+          // Trigger sync
+          const result = await SyncService.syncNow();
+          
+          if (result.success && Platform.OS === 'android') {
+            ToastAndroid.show(
+              `✓ Synced ${result.syncedCount} records to AWS`, 
+              ToastAndroid.SHORT
+            );
+          }
+        } else {
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('AWS Connected ✓', ToastAndroid.SHORT);
+          }
+        }
+      }
+      
+      prevAWSReachable.current = networkStatus.isAWSReachable;
+    };
+    
+    handleAutoSync();
+  }, [networkStatus.isAWSReachable]);
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>

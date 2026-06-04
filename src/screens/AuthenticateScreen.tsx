@@ -100,6 +100,10 @@ export const AuthenticateScreen = ({
   const insets = useSafeAreaInsets();
   const {addAttendanceRecord} = useAppStore();
   const testMode = route.params?.testMode ?? false;
+  // @ts-ignore
+  const mode = route.params?.mode || 'check-in';
+  // @ts-ignore
+  const recordId = route.params?.recordId;
 
   const [stage, setStage] = useState<AuthStage>('searching');
   const [attemptCount, setAttemptCount] = useState(0);
@@ -371,20 +375,30 @@ export const AuthenticateScreen = ({
               setStage('success');
               resultScale.value = withSpring(1, {damping: 8, stiffness: 120});
 
-            if (!testMode) {
-                await addAttendanceRecord({
-                  userId: user.id,
-                  userName: user.name,
-                  employeeId: user.employeeId,
-                  timestamp: Date.now(),
-                  type: 'check-in',
-                  method: 'face',
-                  confidence: parseFloat(conf),
-                  gpsLat: gps.lat,
-                  gpsLng: gps.lng,
-                  synced: false,
-                  livenessScore: 0.95,
-                });
+              if (!testMode) {
+                if (mode === 'check-in') {
+                  await addAttendanceRecord({
+                    userId: user.id,
+                    userName: user.name,
+                    employeeId: user.employeeId,
+                    timestamp: Date.now(),
+                    type: 'check-in',
+                    method: 'face',
+                    confidence: parseFloat(conf),
+                    gpsLat: gps.lat,
+                    gpsLng: gps.lng,
+                    synced: false,
+                    livenessScore: 0.95,
+                  });
+                } else if (mode === 'check-out' && recordId) {
+                  await databaseService.recordCheckOut(recordId, {
+                    timestamp: Date.now(),
+                    latitude: gps.lat,
+                    longitude: gps.lng,
+                    livenessScore: 0.95,
+                    faceConfidence: parseFloat(conf),
+                  });
+                }
               }
 
               setTimeout(() => {
@@ -513,7 +527,7 @@ export const AuthenticateScreen = ({
           <Icon name="chevron-left" size={28} color="#FFFFFF" />
         </Pressable>
         <Text style={styles.topTitle}>
-          {testMode ? 'Liveness Test' : 'Mark Attendance'}
+          {testMode ? 'Liveness Test' : (mode === 'check-out' ? 'Check Out' : 'Check In')}
         </Text>
         <Text style={styles.topTime}>{timeStr}</Text>
       </View>
@@ -675,7 +689,7 @@ export const AuthenticateScreen = ({
                 typography.body,
                 {color: colors.primary.navy, marginTop: 8},
               ]}>
-              Attendance marked at {attendanceTimeStr}
+              {mode === 'check-out' ? 'Checked out' : 'Checked in'} at {attendanceTimeStr}
             </Text>
             <Text
               style={[

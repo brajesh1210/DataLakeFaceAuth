@@ -5,9 +5,11 @@ import {useTheme} from '@theme/ThemeContext';
 interface CalendarGridProps {
   month: number; // 0-11
   year: number;
-  attendanceData: {[date: string]: 'present' | 'absent' | 'leave'};
+  attendanceData: {[date: string]: 'complete' | 'pending' | 'absent' | 'leave'};
   selectedDate?: string; // YYYY-MM-DD
   onDateSelect?: (date: string) => void;
+  minDate?: Date;
+  maxDate?: Date;
 }
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -18,6 +20,8 @@ export const CalendarGrid = React.memo(({
   attendanceData,
   selectedDate,
   onDateSelect,
+  minDate,
+  maxDate,
 }: CalendarGridProps) => {
   const {colors, typography} = useTheme();
 
@@ -35,6 +39,13 @@ export const CalendarGrid = React.memo(({
   const today = new Date();
   const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
   const currentDay = today.getDate();
+
+  const isPastDate = (date: Date) => {
+    if (!minDate) return false;
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const minOnly = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+    return dateOnly < minOnly;
+  };
 
   const grid = [];
   let dayCounter = 1;
@@ -55,9 +66,13 @@ export const CalendarGrid = React.memo(({
         const isToday = isCurrentMonth && d === currentDay;
 
         let dotColor = null;
-        if (status === 'present') dotColor = colors.accent.green;
+        if (status === 'complete') dotColor = colors.accent.green;
         else if (status === 'absent') dotColor = colors.accent.red;
-        else if (status === 'leave') dotColor = colors.accent.orange;
+        else if (status === 'pending') dotColor = colors.accent.orange;
+        else if (status === 'leave') dotColor = '#3B82F6'; // Blue dot for leave
+
+        const cellDate = new Date(year, month, d);
+        const isDisabled = isPastDate(cellDate);
 
         week.push(
           <Pressable
@@ -66,12 +81,14 @@ export const CalendarGrid = React.memo(({
               styles.dayCell,
               isSelected && {backgroundColor: colors.primary.navy, borderRadius: 8},
               isToday && !isSelected && {borderWidth: 1, borderColor: colors.primary.navy, borderRadius: 8},
+              isDisabled && styles.disabledDate,
             ]}
-            onPress={() => onDateSelect?.(dateStr)}>
+            onPress={isDisabled ? undefined : () => onDateSelect?.(dateStr)}>
             <Text
               style={[
                 typography.body,
                 {color: isSelected ? colors.text.white : colors.text.primary},
+                isDisabled && styles.disabledText,
               ]}>
               {d}
             </Text>
@@ -151,5 +168,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  disabledDate: {
+    opacity: 0.3,
+  },
+  disabledText: {
+    color: '#94A3B8',
   },
 });

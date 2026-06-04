@@ -16,6 +16,7 @@ import {Card} from '@components/ui/Card';
 import {AppHeader} from '@components/ui/AppHeader';
 import {StatusBadge} from '@components/ui/StatusBadge';
 import {useAppStore} from '@store/useAppStore';
+import {SkeletonListItem} from '@components/ui/SkeletonCard';
 import type {AttendanceRecord} from '../types/types';
 import type {TabScreenProps} from '@navigation/navigationTypes';
 
@@ -65,6 +66,7 @@ export const AttendanceLogScreen = ({navigation}: TabScreenProps<'Log'>) => {
   const {attendanceRecords, addAttendanceRecord} = useAppStore();
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Can be used for initial loading later
 
   const filtered = useMemo(
     () => filterRecords(attendanceRecords, activeFilter),
@@ -126,12 +128,12 @@ export const AttendanceLogScreen = ({navigation}: TabScreenProps<'Log'>) => {
           <View
             style={[
               styles.datePill,
-              {backgroundColor: '#D6E3F1', borderRadius: radius.md},
+              {backgroundColor: colors.primary.navy, borderRadius: radius.md},
             ]}>
             <Text
               style={[
                 typography.caption,
-                {color: colors.primary.navy, fontWeight: '700', fontSize: 11},
+                {color: '#FFFFFF', fontWeight: '700', fontSize: 11},
               ]}>
               {formatDateShort(item.timestamp)}
             </Text>
@@ -145,10 +147,16 @@ export const AttendanceLogScreen = ({navigation}: TabScreenProps<'Log'>) => {
               numberOfLines={1}>
               {item.userName}
             </Text>
-            <Text style={[typography.caption, {color: colors.text.secondary}]}>
-              {item.employeeId} • {item.type === 'check-in' ? 'In' : 'Out'}{' '}
-              {formatTime(item.timestamp)}
-            </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 2}}>
+              <Text style={[typography.caption, {color: colors.text.secondary}]}>{item.employeeId} • </Text>
+              <Text style={[typography.caption, {color: colors.accent.green, fontWeight: '600'}]}>In {formatTime(item.checkInTime || item.timestamp)}</Text>
+              <Text style={[typography.caption, {color: colors.text.secondary}]}> • </Text>
+              {item.checkOutTime ? (
+                <Text style={[typography.caption, {color: colors.accent.red, fontWeight: '600'}]}>Out {formatTime(item.checkOutTime)}</Text>
+              ) : (
+                <Text style={[typography.caption, {color: colors.accent.orange, fontWeight: '600'}]}>Pending</Text>
+              )}
+            </View>
           </View>
           <View style={styles.recordRight}>
             <StatusBadge
@@ -227,21 +235,29 @@ export const AttendanceLogScreen = ({navigation}: TabScreenProps<'Log'>) => {
       </ScrollView>
 
       {/* Records List */}
-      <FlatList
-        data={filtered}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary.navy]}
-          />
-        }
-        ListEmptyComponent={EmptyState}
-        showsVerticalScrollIndicator={false}
-      />
+      {isLoading ? (
+        <View style={{paddingHorizontal: 16}}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <SkeletonListItem key={i} />
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary.navy]}
+            />
+          }
+          ListEmptyComponent={EmptyState}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </GradientBackground>
   );
 };

@@ -30,13 +30,13 @@ export function SplashScreen({navigation}: Props) {
         <Card style={styles.card}>
           <View style={styles.imageContainer}>
             <Image
-              source={{
-                uri: 'https://images.unsplash.com/photo-1592834103389-23a9c4e8a1c6?w=800',
-              }}
-              style={styles.image}
+              source={require('../assets/images/highway_bg.jpeg')}
+              style={styles.highwayImage}
               resizeMode="cover"
             />
-            <Text style={styles.imageCredit}>Image credit: nhai.gov.in</Text>
+            <View style={styles.captionOverlay}>
+              <Text style={styles.captionText}>Image credit: nhai.gov.in</Text>
+            </View>
           </View>
 
           <View style={styles.titleContainer}>
@@ -95,24 +95,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   imageContainer: {
+    position: 'relative',
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginVertical: 16,
+  },
+  highwayImage: {
     width: '100%',
     height: 200,
-    position: 'relative',
   },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imageCredit: {
+  captionOverlay: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderTopLeftRadius: 6,
+  },
+  captionText: {
     fontSize: 10,
-    color: '#E2E8F0',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
+    color: '#FFFFFF',
+    fontWeight: '500',
   },
   titleContainer: {
     padding: 24,

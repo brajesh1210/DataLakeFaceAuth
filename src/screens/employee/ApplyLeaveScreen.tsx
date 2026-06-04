@@ -62,6 +62,14 @@ export function ApplyLeaveScreen() {
       Alert.alert('Validation Error', 'Please select a date.');
       return;
     }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date < today) {
+      Alert.alert('Invalid Date', 'Cannot apply leave for past dates');
+      return;
+    }
+
     if (!leaveType) {
       Alert.alert('Validation Error', 'Please select a leave type.');
       return;
@@ -187,6 +195,7 @@ export function ApplyLeaveScreen() {
               attendanceData={{}}
               selectedDate={selectedGridDate}
               onDateSelect={handleDateSelect}
+              minDate={new Date()}
             />
             <PrimaryButton
               title="Confirm Date"

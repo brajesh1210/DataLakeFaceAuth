@@ -13,6 +13,7 @@ import {useTheme} from '@theme/ThemeContext';
 import {Card} from '@components/ui/Card';
 import {StatusBadge} from '@components/ui/StatusBadge';
 import {useAppStore} from '@store/useAppStore';
+import {SkeletonListItem} from '@components/ui/SkeletonCard';
 import type {AttendanceRecord} from '../../types/types';
 
 type FilterKey = 'today' | 'yesterday' | 'week' | 'month' | 'all';
@@ -57,11 +58,19 @@ export function LogsTab() {
   const {attendanceRecords} = useAppStore();
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const filtered = useMemo(
     () => filterRecords(attendanceRecords, activeFilter),
     [attendanceRecords, activeFilter],
   );
+
+  const calculateHours = (checkIn: number, checkOut: number): string => {
+    const diffMs = checkOut - checkIn;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+  };
 
   const formatTime = (ts: number): string => {
     const d = new Date(ts);
@@ -132,29 +141,45 @@ export function LogsTab() {
     return (
       <Card style={styles.recordCard}>
         <View style={styles.recordLeft}>
-          <View style={[styles.datePill, {backgroundColor: colors.background.page}]}>
-            <Text style={[typography.caption, {color: colors.primary.navy, fontWeight: '700'}]}>
+          <View style={[styles.datePill, {backgroundColor: colors.primary.navy}]}>
+            <Text style={[typography.caption, {color: '#FFFFFF', fontWeight: '700'}]}>
               {d.getDate()}
             </Text>
-            <Text style={[typography.caption, {color: colors.text.secondary, fontSize: 10}]}>
+            <Text style={[typography.caption, {color: 'rgba(255,255,255,0.7)', fontSize: 10}]}>
               {months[d.getMonth()]}
             </Text>
           </View>
           <View style={styles.recordInfo}>
-            <Text style={[typography.body, {color: colors.text.primary, fontWeight: '600'}]}>
+            <Text style={[typography.body, {color: colors.text.primary, fontWeight: '600', marginBottom: 6}]}>
               {item.userName}
             </Text>
-            <View style={styles.timeRow}>
-              <Icon name="clock-outline" size={14} color={colors.text.tertiary} />
-              <Text style={[typography.caption, {color: colors.text.secondary, marginLeft: 4}]}>
-                {isToday ? 'Today' : formatDateShort(item.timestamp)}, {formatTime(item.timestamp)}
-              </Text>
-            </View>
-            <View style={styles.locationRow}>
-              <Icon name="map-marker-outline" size={14} color={colors.text.tertiary} />
-              <Text style={[typography.caption, {color: colors.text.tertiary, marginLeft: 4}]}>
-                Site
-              </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+              <View>
+                <Text style={styles.timeLabel}>Check In</Text>
+                <Text style={[styles.timeValue, {color: colors.accent.green}]}>{formatTime(item.checkInTime || item.timestamp)}</Text>
+              </View>
+              <Icon name="arrow-right" size={20} color={colors.text.tertiary} />
+              <View>
+                <Text style={styles.timeLabel}>Check Out</Text>
+                {item.checkOutTime ? (
+                  <Text style={[styles.timeValue, {color: colors.accent.red}]}>
+                    {formatTime(item.checkOutTime)}
+                  </Text>
+                ) : (
+                  <Text style={[styles.timeValue, {color: colors.accent.orange}]}>
+                    Pending
+                  </Text>
+                )}
+              </View>
+              <View>
+                <Text style={styles.timeLabel}>Hours</Text>
+                <Text style={styles.timeValue}>
+                  {item.checkOutTime 
+                    ? calculateHours(item.checkInTime || item.timestamp, item.checkOutTime)
+                    : '—'
+                  }
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -184,16 +209,24 @@ export function LogsTab() {
   return (
     <View style={[styles.container, {backgroundColor: colors.background.page}]}>
       {renderFilterChips()}
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmpty}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary.navy} />
-        }
-      />
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <SkeletonListItem key={i} />
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmpty}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary.navy} />
+          }
+        />
+      )}
     </View>
   );
 }
@@ -243,15 +276,17 @@ const styles = StyleSheet.create({
   recordInfo: {
     flex: 1,
   },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+  timeLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    fontWeight: '600',
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
+  timeValue: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '500',
   },
   recordRight: {
     alignItems: 'flex-end',

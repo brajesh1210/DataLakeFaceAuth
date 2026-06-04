@@ -36,14 +36,28 @@ export interface AttendanceRecord {
   userId: string;
   userName: string;
   employeeId: string;
-  timestamp: number;
-  type: 'check-in' | 'check-out';
-  method: 'face' | 'manual';
-  confidence: number;
-  gpsLat: number;
-  gpsLng: number;
-  synced: boolean;
+  
+  checkInTime?: number;
+  checkOutTime?: number;
+  latitude?: number;
+  longitude?: number;
+  checkOutLatitude?: number;
+  checkOutLongitude?: number;
   livenessScore: number;
+  checkOutLiveness?: number;
+  faceConfidence?: number;
+  checkOutConfidence?: number;
+  deviceId?: string;
+  synced: boolean;
+  syncedAt?: number;
+
+  // Legacy mapped fields
+  timestamp: number;
+  type?: 'check-in' | 'check-out';
+  method?: 'face' | 'manual';
+  confidence?: number;
+  gpsLat?: number;
+  gpsLng?: number;
 }
 
 export type AuthStage =

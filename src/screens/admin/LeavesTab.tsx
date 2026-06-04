@@ -7,6 +7,7 @@ import {SecondaryButton} from '@components/ui/SecondaryButton';
 import {StatusBadge} from '@components/ui/StatusBadge';
 import {databaseService} from '@services/DatabaseService';
 import {useAppStore} from '@store/useAppStore';
+import {SkeletonCard} from '@components/ui/SkeletonCard';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type LeaveFilter = 'Pending' | 'Approved' | 'Rejected' | 'All';
@@ -19,13 +20,17 @@ export function LeavesTab() {
   const [activeFilter, setActiveFilter] = useState<LeaveFilter>('Pending');
   const [leaves, setLeaves] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchLeaves = async () => {
+    setIsLoading(true);
     try {
       const allLeaves = await databaseService.getLeaveApplications();
       setLeaves(allLeaves);
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -162,23 +167,31 @@ export function LeavesTab() {
     <View style={[styles.container, {backgroundColor: colors.background.page}]}>
       {renderFilterChips()}
       
-      <FlatList
-        data={filteredLeaves}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Icon name="calendar-remove" size={64} color={colors.border.default} />
-            <Text style={[typography.h3, {color: colors.text.secondary, marginTop: 16}]}>
-              No leave applications
-            </Text>
-          </View>
-        }
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary.navy} />
-        }
-      />
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {[1, 2, 3].map(i => (
+            <SkeletonCard key={i} />
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={filteredLeaves}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Icon name="calendar-remove" size={64} color={colors.border.default} />
+              <Text style={[typography.h3, {color: colors.text.secondary, marginTop: 16}]}>
+                No leave applications
+              </Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary.navy} />
+          }
+        />
+      )}
     </View>
   );
 }

@@ -3,6 +3,7 @@ import {StyleSheet, View, Text, FlatList, TouchableOpacity} from 'react-native';
 import {useTheme} from '@theme/ThemeContext';
 import {databaseService} from '@services/DatabaseService';
 import {MonthlyLedgerModal} from './MonthlyLedgerModal';
+import {SkeletonListItem} from '@components/ui/SkeletonCard';
 import type {User} from '../../types/types';
 
 export function MonthlyTab() {
@@ -10,18 +11,21 @@ export function MonthlyTab() {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
   const fetchUsers = async () => {
+    setIsLoading(true);
     try {
       const allUsers = await databaseService.getAllUsers();
-      // filter out admin if needed, or keep them
       setUsers(allUsers.filter(u => u.role !== 'admin'));
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,17 +61,25 @@ export function MonthlyTab() {
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background.page}]}>
-      <FlatList
-        data={users}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={[typography.body, {color: colors.text.secondary}]}>No employees found.</Text>
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <SkeletonListItem key={i} />
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={users}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={[typography.body, {color: colors.text.secondary}]}>No employees found.</Text>
+            </View>
+          }
+        />
+      )}
 
       <MonthlyLedgerModal
         visible={modalVisible}

@@ -10,8 +10,10 @@ import {EmployeePortalScreen} from '@screens/employee/EmployeePortalScreen';
 import {AuthenticateScreen} from '@screens/AuthenticateScreen';
 import {RegisterFaceScreen} from '@screens/RegisterFaceScreen';
 import {ApplyLeaveScreen} from '@screens/employee/ApplyLeaveScreen';
-import {MyProfileScreen} from '@screens/employee/MyProfileScreen';
 import {AboutScreen} from '@screens/AboutScreen';
+import {SyncDetailsScreen} from '@screens/SyncDetailsScreen';
+import {MyProfileScreen} from '@screens/employee/MyProfileScreen';
+import {NotificationsScreen} from '@screens/NotificationsScreen';
 
 import {useAppStore} from '@store/useAppStore';
 import {ServiceInitializer} from '@services/ServiceInitializer';
@@ -106,6 +108,16 @@ export function AppNavigator() {
       <Stack.Screen
         name="About"
         component={AboutScreen}
+        options={{animation: 'slide_from_bottom'}}
+      />
+      <Stack.Screen
+        name="SyncDetails"
+        component={SyncDetailsScreen}
+        options={{animation: 'slide_from_bottom'}}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
         options={{animation: 'slide_from_bottom'}}
       />
     </Stack.Navigator>

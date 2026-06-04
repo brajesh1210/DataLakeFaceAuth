@@ -78,10 +78,15 @@ export class DatabaseService {
         employee_id TEXT NOT NULL,
         user_name TEXT NOT NULL,
         check_in_time INTEGER NOT NULL,
+        check_out_time INTEGER,
         latitude REAL,
         longitude REAL,
+        check_out_latitude REAL,
+        check_out_longitude REAL,
         liveness_score REAL,
+        check_out_liveness REAL,
         face_confidence REAL,
+        check_out_confidence REAL,
         device_id TEXT,
         synced INTEGER DEFAULT 0,
         synced_at INTEGER,
@@ -106,10 +111,29 @@ export class DatabaseService {
       );`,
       'CREATE INDEX IF NOT EXISTS idx_leave_user ON leave_applications(user_id);',
       'CREATE INDEX IF NOT EXISTS idx_leave_status ON leave_applications(status);',
+      `CREATE TABLE IF NOT EXISTS sync_log (
+        id TEXT PRIMARY KEY,
+        timestamp INTEGER NOT NULL,
+        records_count INTEGER NOT NULL,
+        failed_count INTEGER DEFAULT 0,
+        status TEXT NOT NULL,
+        error_message TEXT
+      );`,
     ];
 
     for (const query of queries) {
       await this.db.executeSql(query);
+    }
+
+    // Attempt migrations (ignore errors if columns exist)
+    try {
+      await this.db.executeSql('ALTER TABLE attendance_records ADD COLUMN check_out_time INTEGER');
+      await this.db.executeSql('ALTER TABLE attendance_records ADD COLUMN check_out_latitude REAL');
+      await this.db.executeSql('ALTER TABLE attendance_records ADD COLUMN check_out_longitude REAL');
+      await this.db.executeSql('ALTER TABLE attendance_records ADD COLUMN check_out_liveness REAL');
+      await this.db.executeSql('ALTER TABLE attendance_records ADD COLUMN check_out_confidence REAL');
+    } catch (e) {
+      // Columns likely already exist
     }
 
     // Safely add role column if it doesn't exist
@@ -443,6 +467,79 @@ export class DatabaseService {
     return records;
   }
 
+  async getAttendanceByUserAndMonth(
+    userId: string,
+    year: number,
+    month: number, // 0-indexed
+  ): Promise<{[date: string]: 'complete' | 'pending' | 'absent' | 'leave'}> {
+    const db = await this.ensureDb();
+    
+    // Calculate start and end timestamps for the given month
+    const startDate = new Date(year, month, 1).getTime();
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
+
+    // 1. Get attendance records
+    const [attResults] = await db.executeSql(
+      `SELECT * FROM attendance_records 
+       WHERE user_id = ? AND check_in_time >= ? AND check_in_time <= ?
+       ORDER BY check_in_time ASC`,
+      [userId, startDate, endDate],
+    );
+
+    // 2. Get leave applications
+    const [leaveResults] = await db.executeSql(
+      `SELECT * FROM leave_applications 
+       WHERE user_id = ? AND date >= ? AND date <= ? AND status = 'Approved'`,
+      [userId, startDate, endDate],
+    );
+
+    const statusMap: {[date: string]: 'complete' | 'pending' | 'absent' | 'leave'} = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Populate Leaves
+    for (let i = 0; i < leaveResults.rows.length; i++) {
+      const row = leaveResults.rows.item(i);
+      const d = new Date(row.date);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      statusMap[dateStr] = 'leave';
+    }
+
+    // Populate Attendance
+    for (let i = 0; i < attResults.rows.length; i++) {
+      const row = attResults.rows.item(i);
+      const d = new Date(row.check_in_time);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      
+      // If there's a checkout time, it's complete, else pending
+      if (row.check_out_time) {
+        statusMap[dateStr] = 'complete';
+      } else {
+        statusMap[dateStr] = 'pending';
+      }
+    }
+
+    // Determine absentees for past weekdays
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const cellDate = new Date(year, month, d);
+      
+      if (!statusMap[dateStr]) {
+        // Only mark absent if it's a weekday and in the past
+        if (cellDate < today) {
+          const dayOfWeek = cellDate.getDay();
+          // Assuming Sat=6 and Sun=0 are weekends
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            statusMap[dateStr] = 'absent';
+          }
+        }
+      }
+    }
+
+    return statusMap;
+  }
+
   async getUserCount(): Promise<number> {
     const db = await this.ensureDb();
     const [results] = await db.executeSql('SELECT COUNT(*) as count FROM users');
@@ -507,7 +604,156 @@ export class DatabaseService {
     await db.executeSql('DELETE FROM attendance_records');
     await db.executeSql('DELETE FROM face_embeddings');
     await db.executeSql('DELETE FROM users');
+    await db.executeSql('DELETE FROM sync_log');
     this.embeddingsCache = [];
+  }
+
+  // --- Sync Log Methods ---
+
+  async logSync(event: {
+    timestamp: number;
+    recordsCount: number;
+    failedCount: number;
+    status: string;
+    errorMessage?: string;
+  }): Promise<void> {
+    const db = await this.ensureDb();
+    const id = `sync_${event.timestamp}_${Math.random().toString(36).substring(7)}`;
+    await db.executeSql(
+      `INSERT INTO sync_log (id, timestamp, records_count, failed_count, status, error_message)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        event.timestamp,
+        event.recordsCount,
+        event.failedCount,
+        event.status,
+        event.errorMessage || null,
+      ],
+    );
+  }
+
+  async getSyncHistory(limit = 10): Promise<any[]> {
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
+      'SELECT * FROM sync_log ORDER BY timestamp DESC LIMIT ?',
+      [limit],
+    );
+    const history = [];
+    for (let i = 0; i < results.rows.length; i++) {
+      const row = results.rows.item(i);
+      history.push({
+        id: row.id,
+        timestamp: row.timestamp,
+        records_count: row.records_count,
+        failed_count: row.failed_count,
+        status: row.status,
+        error_message: row.error_message,
+      });
+    }
+    return history;
+  }
+
+  async getSyncStats(): Promise<{ today: number; week: number; total: number }> {
+    const db = await this.ensureDb();
+    const now = new Date();
+    
+    // Today
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    // This week (last 7 days)
+    const startOfWeek = startOfToday - (7 * 24 * 60 * 60 * 1000);
+
+    const [todayRes] = await db.executeSql(
+      "SELECT SUM(records_count) as total FROM sync_log WHERE status = 'success' AND timestamp >= ?",
+      [startOfToday]
+    );
+    
+    const [weekRes] = await db.executeSql(
+      "SELECT SUM(records_count) as total FROM sync_log WHERE status = 'success' AND timestamp >= ?",
+      [startOfWeek]
+    );
+
+    const [totalRes] = await db.executeSql(
+      "SELECT SUM(records_count) as total FROM sync_log WHERE status = 'success'"
+    );
+
+    return {
+      today: todayRes.rows.item(0).total || 0,
+      week: weekRes.rows.item(0).total || 0,
+      total: totalRes.rows.item(0).total || 0,
+    };
+  }
+
+  async getAttendanceRecords(userId?: string): Promise<AttendanceRecord[]> {
+    const db = await this.ensureDb();
+    let results;
+    if (userId) {
+      [results] = await db.executeSql(
+        'SELECT * FROM attendance_records WHERE user_id = ? ORDER BY check_in_time DESC',
+        [userId],
+      );
+    } else {
+      [results] = await db.executeSql(
+        'SELECT * FROM attendance_records ORDER BY check_in_time DESC',
+      );
+    }
+    return this.mapAttendanceRows(results.rows);
+  }
+
+  async getTodayAttendance(userId: string): Promise<AttendanceRecord | null> {
+    const db = await this.ensureDb();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const [results] = await db.executeSql(
+      `SELECT * FROM attendance_records 
+       WHERE user_id = ? AND check_in_time >= ? 
+       ORDER BY check_in_time DESC LIMIT 1`,
+      [userId, startOfDay.getTime()]
+    );
+    
+    if (results.rows.length === 0) return null;
+    return this.mapAttendanceRows(results.rows)[0];
+  }
+
+  async getNextAction(userId: string): Promise<'check-in' | 'check-out' | 'completed'> {
+    const today = await this.getTodayAttendance(userId);
+    
+    if (!today) return 'check-in';
+    if (today.checkInTime && !today.checkOutTime) return 'check-out';
+    return 'completed';
+  }
+
+  async recordCheckOut(
+    recordId: string, 
+    data: { 
+      timestamp: number, 
+      latitude: number, 
+      longitude: number,
+      livenessScore: number,
+      faceConfidence: number,
+    }
+  ): Promise<void> {
+    const db = await this.ensureDb();
+    await db.executeSql(
+      `UPDATE attendance_records 
+       SET check_out_time = ?, check_out_latitude = ?, check_out_longitude = ?,
+           check_out_liveness = ?, check_out_confidence = ?, synced = 0
+       WHERE id = ?`,
+      [data.timestamp, data.latitude, data.longitude, 
+       data.livenessScore, data.faceConfidence, recordId]
+    );
+  }
+
+  async getAttendanceForDate(userId: string, date: number): Promise<AttendanceRecord | null> {
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
+      'SELECT * FROM attendance_records WHERE user_id = ? AND check_in_time >= ? AND check_in_time < ? LIMIT 1',
+      [userId, date, date + 86400000]
+    );
+    const records = this.mapAttendanceRows(results.rows);
+    return records.length > 0 ? records[0] : null;
   }
 
   private mapAttendanceRows(rows: SQLite.ResultSetRowList): AttendanceRecord[] {
@@ -520,13 +766,24 @@ export class DatabaseService {
         employeeId: row.employee_id,
         userName: row.user_name,
         timestamp: row.check_in_time,
+        checkInTime: row.check_in_time,
+        checkOutTime: row.check_out_time,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        checkOutLatitude: row.check_out_latitude,
+        checkOutLongitude: row.check_out_longitude,
+        livenessScore: row.liveness_score,
+        checkOutLiveness: row.check_out_liveness,
+        faceConfidence: row.face_confidence,
+        checkOutConfidence: row.check_out_confidence,
+        deviceId: row.device_id,
+        synced: row.synced === 1,
+        syncedAt: row.synced_at,
         type: 'check-in',
         method: 'face',
         confidence: row.face_confidence,
         gpsLat: row.latitude,
         gpsLng: row.longitude,
-        synced: row.synced === 1,
-        livenessScore: row.liveness_score,
       });
     }
     return records;

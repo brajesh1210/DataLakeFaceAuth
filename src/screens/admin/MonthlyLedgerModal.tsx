@@ -18,8 +18,9 @@ export function MonthlyLedgerModal({visible, user, onClose}: Props) {
   const {colors, typography} = useTheme();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
-  const [attendanceData, setAttendanceData] = useState<{[date: string]: 'present' | 'absent' | 'leave'}>({});
+  const [attendanceData, setAttendanceData] = useState<{[date: string]: 'complete' | 'pending' | 'absent' | 'leave'}>({});
   const [loading, setLoading] = useState(false);
+  const [dayRecord, setDayRecord] = useState<any>(null);
 
   useEffect(() => {
     if (visible && user) {
@@ -27,35 +28,31 @@ export function MonthlyLedgerModal({visible, user, onClose}: Props) {
     }
   }, [visible, user, currentDate]);
 
+  useEffect(() => {
+    if (visible && user && selectedDay) {
+      fetchDayRecord();
+    }
+  }, [visible, user, selectedDay, currentDate]);
+
+  const fetchDayRecord = async () => {
+    if (!user) return;
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const d = new Date(year, month, selectedDay);
+    const ts = d.getTime();
+    
+    const record = await databaseService.getAttendanceForDate(user.id, ts);
+    setDayRecord(record);
+  };
+
   const fetchMonthData = async () => {
     if (!user) return;
     setLoading(true);
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-      const data = await databaseService.getAttendanceByMonth(user.id, year, month);
+      const mergedData = await databaseService.getAttendanceByUserAndMonth(user.id, year, month);
       
-      // Also fetch leaves
-      const leaves = await databaseService.getLeaveApplications(user.id);
-      const approvedLeaves = leaves.filter(l => l.status === 'Approved');
-
-      // Merge leaves into attendance data as orange dots
-      const mergedData: {[date: string]: 'present' | 'absent' | 'leave'} = {};
-      data.forEach(d => {
-        mergedData[d.date] = d.status as any;
-      });
-
-      approvedLeaves.forEach(leave => {
-        const d = new Date(leave.date);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          // Add if not already present
-          if (!mergedData[dateStr]) {
-            mergedData[dateStr] = 'leave';
-          }
-        }
-      });
-
       setAttendanceData(mergedData);
     } catch (e) {
       console.error(e);
@@ -87,19 +84,38 @@ export function MonthlyLedgerModal({visible, user, onClose}: Props) {
   let timeText = '';
 
   if (dayStatus) {
-    if (dayStatus === 'present') {
-      statusText = 'PRESENT';
+    if (dayStatus === 'complete') {
+      statusText = 'COMPLETE';
       statusColor = colors.accent.green;
-      // We don't have checkInTime stored in the dict format anymore unless we change it.
-      // For now, let's just skip the checkIn time display since it's an object map now.
+    } else if (dayStatus === 'pending') {
+      statusText = 'PENDING';
+      statusColor = colors.accent.orange;
     } else if (dayStatus === 'leave') {
       statusText = 'ON LEAVE';
-      statusColor = colors.accent.orange;
+      statusColor = '#3B82F6';
+    } else if (dayStatus === 'absent') {
+      statusText = 'ABSENT';
+      statusColor = colors.accent.red;
     }
   }
 
   // Weekends are naturally absent but we might not want to highlight them as absent if not required, 
   // but let's keep it simple.
+
+  const calculateHours = (checkIn: number, checkOut: number): string => {
+    const diffMs = checkOut - checkIn;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const formatTime = (ts: number): string => {
+    const d = new Date(ts);
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ampm}`;
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -149,14 +165,18 @@ export function MonthlyLedgerModal({visible, user, onClose}: Props) {
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, {backgroundColor: colors.accent.green}]} />
-                <Text style={[typography.caption, {color: colors.text.secondary}]}>Present</Text>
+                <Text style={[typography.caption, {color: colors.text.secondary}]}>Complete</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, {backgroundColor: colors.accent.orange}]} />
+                <Text style={[typography.caption, {color: colors.text.secondary}]}>Pending</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, {backgroundColor: colors.accent.red}]} />
                 <Text style={[typography.caption, {color: colors.text.secondary}]}>Absent</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, {backgroundColor: colors.accent.orange}]} />
+                <View style={[styles.legendDot, {backgroundColor: '#3B82F6'}]} />
                 <Text style={[typography.caption, {color: colors.text.secondary}]}>Leave</Text>
               </View>
             </View>
@@ -164,17 +184,42 @@ export function MonthlyLedgerModal({visible, user, onClose}: Props) {
           </Card>
 
           <View style={[styles.infoCard, {backgroundColor: colors.background.card}]}>
-            <Text style={[typography.h4, {color: colors.text.primary, marginBottom: 8}]}>
+            <Text style={[typography.h4, {color: colors.text.primary, marginBottom: 12}]}>
               Log Details for {selectedDay} {monthNames[currentDate.getMonth()]}
             </Text>
-            <Text style={[typography.body, {color: statusColor, fontWeight: '700'}]}>
-              Status: {statusText}
-            </Text>
-            {timeText ? (
-              <Text style={[typography.body, {color: colors.text.secondary, marginTop: 4}]}>
-                {timeText}
+            
+            {dayRecord ? (
+              <>
+                <Text style={[typography.body, {color: dayRecord.checkOutTime ? colors.accent.green : colors.accent.orange, fontWeight: '700', marginBottom: 12}]}>
+                  Status: {dayRecord.checkOutTime ? 'COMPLETE' : 'PENDING'}
+                </Text>
+                <View style={styles.timeGrid}>
+                  <View>
+                    <Text style={styles.timeLabel}>Check In</Text>
+                    <Text style={styles.timeValue}>{formatTime(dayRecord.checkInTime || dayRecord.timestamp)}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.timeLabel}>Check Out</Text>
+                    <Text style={styles.timeValue}>
+                      {dayRecord.checkOutTime ? formatTime(dayRecord.checkOutTime) : '—'}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.timeLabel}>Total Hours</Text>
+                    <Text style={styles.timeValue}>
+                      {dayRecord.checkOutTime 
+                        ? calculateHours(dayRecord.checkInTime || dayRecord.timestamp, dayRecord.checkOutTime)
+                        : 'In progress'
+                      }
+                    </Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <Text style={[typography.body, {color: statusColor, fontWeight: '700'}]}>
+                Status: {statusText}
               </Text>
-            ) : null}
+            )}
           </View>
 
           <View style={styles.footer}>
@@ -240,6 +285,28 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 16,
     borderRadius: 12,
+  },
+  timeGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  timeLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  timeValue: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '500',
   },
   footer: {
     marginTop: 'auto',
