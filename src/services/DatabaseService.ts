@@ -38,6 +38,16 @@ export class DatabaseService {
     this.isInitialized = true;
   }
 
+  private async ensureDb(): Promise<SQLite.SQLiteDatabase> {
+    if (!this.db) {
+      await this.initialize();
+    }
+    if (!this.db) {
+      throw new Error('Database initialization failed');
+    }
+    return this.db;
+  }
+
   private async createTables(): Promise<void> {
     if (!this.db) {
       throw new Error('Database not open');
@@ -131,9 +141,7 @@ export class DatabaseService {
   }
 
   async registerUser(user: User, embedding: Float32Array): Promise<string> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     // Encrypt embedding
     const encryptedEmbedding = encryptionService.encryptEmbedding(embedding);
@@ -141,7 +149,7 @@ export class DatabaseService {
       .toString(36)
       .substring(7)}`;
 
-    await this.db.transaction((tx: SQLite.Transaction) => {
+    await db.transaction((tx: SQLite.Transaction) => {
       tx.executeSql(
         `INSERT INTO users (id, name, employee_id, department, project_site, mobile, registered_at, is_active) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -176,10 +184,8 @@ export class DatabaseService {
   }
 
   async getAllUsers(): Promise<User[]> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-    const [results] = await this.db.executeSql(
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
       'SELECT * FROM users WHERE is_active = 1',
     );
     const users: User[] = [];
@@ -207,10 +213,8 @@ export class DatabaseService {
   }
 
   async getUserById(id: string): Promise<User | null> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-    const [results] = await this.db.executeSql(
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
       'SELECT * FROM users WHERE id = ?',
       [id],
     );
@@ -242,15 +246,13 @@ export class DatabaseService {
   }
 
   async recordAttendance(record: AttendanceRecord): Promise<string> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    const db = await this.ensureDb();
 
     // Create tamper detection payload
     const payloadForHmac = `${record.userId}:${record.timestamp}:${record.type}`;
     const hmac = encryptionService.generateHMAC(payloadForHmac);
 
-    await this.db.executeSql(
+    await db.executeSql(
       `INSERT INTO attendance_records 
        (id, user_id, employee_id, user_name, check_in_time, latitude, longitude, liveness_score, face_confidence, synced, encrypted_payload)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -273,10 +275,8 @@ export class DatabaseService {
   }
 
   async getRecentAttendance(limit = 50): Promise<AttendanceRecord[]> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-    const [results] = await this.db.executeSql(
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
       'SELECT * FROM attendance_records ORDER BY check_in_time DESC LIMIT ?',
       [limit],
     );
@@ -284,21 +284,20 @@ export class DatabaseService {
   }
 
   async getUnsyncedRecords(): Promise<AttendanceRecord[]> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-    const [results] = await this.db.executeSql(
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
       'SELECT * FROM attendance_records WHERE synced = 0',
     );
     return this.mapAttendanceRows(results.rows);
   }
 
   async markRecordsSynced(ids: string[]): Promise<void> {
-    if (!this.db || ids.length === 0) {
+    const db = await this.ensureDb();
+    if (ids.length === 0) {
       return;
     }
     const placeholders = ids.map(() => '?').join(',');
-    await this.db.executeSql(
+    await db.executeSql(
       `UPDATE attendance_records SET synced = 1, synced_at = ? WHERE id IN (${placeholders})`,
       [Date.now(), ...ids],
     );
@@ -307,10 +306,8 @@ export class DatabaseService {
   // --- Phase 5 Additions ---
 
   async getUserByEmployeeId(empId: string): Promise<User | null> {
-    if (!this.db) {
-      return null;
-    }
-    const [results] = await this.db.executeSql(
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
       'SELECT * FROM users WHERE employee_id = ? LIMIT 1',
       [empId],
     );
@@ -335,10 +332,8 @@ export class DatabaseService {
   }
 
   async createUser(user: User): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not open');
-    }
-    await this.db.executeSql(
+    const db = await this.ensureDb();
+    await db.executeSql(
       `INSERT INTO users (id, name, employee_id, department, role, registered_at, is_active)
        VALUES (?, ?, ?, ?, ?, ?, 1)`,
       [
@@ -353,10 +348,8 @@ export class DatabaseService {
   }
 
   async createLeaveApplication(leave: any): Promise<string> {
-    if (!this.db) {
-      throw new Error('Database not open');
-    }
-    await this.db.executeSql(
+    const db = await this.ensureDb();
+    await db.executeSql(
       `INSERT INTO leave_applications (id, user_id, user_name, leave_type, date, reason, status, applied_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -374,9 +367,7 @@ export class DatabaseService {
   }
 
   async getLeaveApplications(userId?: string): Promise<any[]> {
-    if (!this.db) {
-      return [];
-    }
+    const db = await this.ensureDb();
     let query = 'SELECT * FROM leave_applications';
     let params: any[] = [];
     if (userId) {
@@ -385,7 +376,7 @@ export class DatabaseService {
     }
     query += ' ORDER BY applied_at DESC';
 
-    const [results] = await this.db.executeSql(query, params);
+    const [results] = await db.executeSql(query, params);
     const rows = results.rows;
     const leaves = [];
     for (let i = 0; i < rows.length; i++) {
@@ -411,10 +402,8 @@ export class DatabaseService {
     status: string,
     reviewedBy: string,
   ): Promise<void> {
-    if (!this.db) {
-      return;
-    }
-    await this.db.executeSql(
+    const db = await this.ensureDb();
+    await db.executeSql(
       `UPDATE leave_applications SET status = ?, reviewed_at = ?, reviewed_by = ? WHERE id = ?`,
       [status, Date.now(), reviewedBy, id],
     );
@@ -425,15 +414,13 @@ export class DatabaseService {
     year: number,
     month: number, // 0-indexed
   ): Promise<any[]> {
-    if (!this.db) {
-      return [];
-    }
+    const db = await this.ensureDb();
     
     // Calculate start and end timestamps for the given month
     const startDate = new Date(year, month, 1).getTime();
     const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
 
-    const [results] = await this.db.executeSql(
+    const [results] = await db.executeSql(
       `SELECT * FROM attendance_records 
        WHERE user_id = ? AND check_in_time >= ? AND check_in_time <= ?
        ORDER BY check_in_time ASC`,
@@ -457,16 +444,16 @@ export class DatabaseService {
   }
 
   async getUserCount(): Promise<number> {
-    if (!this.db) return 0;
-    const [results] = await this.db.executeSql('SELECT COUNT(*) as count FROM users');
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql('SELECT COUNT(*) as count FROM users');
     return results.rows.item(0).count;
   }
 
   async getTodayAttendanceCount(): Promise<number> {
-    if (!this.db) return 0;
+    const db = await this.ensureDb();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const [results] = await this.db.executeSql(
+    const [results] = await db.executeSql(
       'SELECT COUNT(DISTINCT user_id) as count FROM attendance_records WHERE check_in_time >= ?',
       [today.getTime()]
     );
@@ -474,15 +461,15 @@ export class DatabaseService {
   }
 
   async getPendingLeavesCount(): Promise<number> {
-    if (!this.db) return 0;
-    const [results] = await this.db.executeSql(
+    const db = await this.ensureDb();
+    const [results] = await db.executeSql(
       "SELECT COUNT(*) as count FROM leave_applications WHERE status = 'Pending'"
     );
     return results.rows.item(0).count;
   }
 
   async getUserAttendanceStats(userId: string): Promise<{ present: number; absent: number; rate: number; lastAttendance: number | null }> {
-    if (!this.db) return { present: 0, absent: 0, rate: 0, lastAttendance: null };
+    const db = await this.ensureDb();
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -490,7 +477,7 @@ export class DatabaseService {
     // Total days elapsed in current month up to today
     const elapsedDays = Math.max(1, now.getDate());
 
-    const [results] = await this.db.executeSql(
+    const [results] = await db.executeSql(
       'SELECT check_in_time FROM attendance_records WHERE user_id = ? AND check_in_time >= ?',
       [userId, startOfMonth]
     );
@@ -516,12 +503,10 @@ export class DatabaseService {
   }
 
   async clearAllData(): Promise<void> {
-    if (!this.db) {
-      return;
-    }
-    await this.db.executeSql('DELETE FROM attendance_records');
-    await this.db.executeSql('DELETE FROM face_embeddings');
-    await this.db.executeSql('DELETE FROM users');
+    const db = await this.ensureDb();
+    await db.executeSql('DELETE FROM attendance_records');
+    await db.executeSql('DELETE FROM face_embeddings');
+    await db.executeSql('DELETE FROM users');
     this.embeddingsCache = [];
   }
 

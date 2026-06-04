@@ -14,7 +14,30 @@ export interface InitResult {
 class ServiceInitializerImpl {
   private isInitialized = false;
 
+  private initPromise: Promise<InitResult> | null = null;
+
   async initializeAll(): Promise<InitResult> {
+    if (this.isInitialized) {
+      return {
+        encryption: true,
+        database: true,
+        models: true,
+        recognition: true,
+        errors: [],
+      };
+    }
+
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = this._doInitialize();
+    const result = await this.initPromise;
+    this.initPromise = null;
+    return result;
+  }
+
+  private async _doInitialize(): Promise<InitResult> {
     const result: InitResult = {
       encryption: false,
       database: false,
@@ -22,14 +45,6 @@ class ServiceInitializerImpl {
       recognition: false,
       errors: [],
     };
-
-    if (this.isInitialized) {
-      result.encryption = true;
-      result.database = true;
-      result.models = true;
-      result.recognition = true;
-      return result;
-    }
 
     console.log('[ServiceInitializer] Starting initialization...');
     const startTime = Date.now();
