@@ -1,10 +1,3 @@
-# 📄 README.md CONTENT FOR GITHUB
-
-Copy this content and paste into your `README.md` file at the project root:
-
----
-
-```markdown
 # 🛣️ DataLake Workforce Portal
 
 > **Secure Offline Facial Recognition & Liveness Detection for NHAI Field Operations**
@@ -16,7 +9,6 @@ Built for **NHAI Hackathon 7.0** — A production-grade mobile application that 
   <em>Powered by Digital India Initiative</em>
 </p>
 
----
 
 ## 🎯 Problem Statement
 
