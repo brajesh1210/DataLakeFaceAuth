@@ -338,8 +338,10 @@ For successful builds, these settings are mandatory:
 
 ---
 
-## 📄 License
+## Team Members
 
-Built for **NHAI Hackathon 7.0**. All third-party libraries used under their respective open-source licenses (Apache 2.0, MIT).
+1. Atharv Handa
+2. Ansh Patel
+3. Brajesh Upadhyay
 
 ---
