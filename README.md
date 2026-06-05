@@ -10,6 +10,37 @@ Built for **NHAI Hackathon 7.0** — A production-grade mobile application that 
 </p>
 
 
+## 🚀 Quick Install (For Reviewers)
+
+### Option 1: Download Pre-Built APK (Fastest - 2 minutes)
+
+| Architecture | Size | Download Link |
+|-------------|------|---------------|
+| **arm64-v8a** (Modern phones) | 38 MB | [📥 Download APK](https://drive.google.com/file/d/1ldVJA0sAaUYbLV_eRsIDi3aIabzyudCY/view?usp=sharing) |
+| **armeabi-v7a** (Older phones) | 29 MB | [📥 Download APK](https://drive.google.com/file/d/1yM87yhrV-R3rTbnnXXGvrLI7kg24JwZW/view?usp=sharing) |
+
+**Quick Steps:**
+1. Download the appropriate APK based on your phone
+2. Transfer to Android device (8.0+, 3GB RAM minimum)
+3. Enable "Install Unknown Apps" in Settings
+4. Tap APK to install
+5. Open "DataLake" and grant permissions
+6. Login with credentials below
+
+### Option 2: Build from Source (15 minutes)
+See [INSTALLATION.md](./INSTALLATION.md) for detailed build instructions.
+
+---
+
+## 🔑 Demo Credentials
+
+| Role | Employee ID | Password |
+|------|------------|----------|
+| **Administrator** | `ADMIN` | `admin123` |
+| **Employee** | Any value | Any value |
+
+---
+
 ## 🎯 Problem Statement
 
 NHAI manages 1.5+ lakh kilometers of national highways with field personnel deployed at remote construction sites where:
@@ -27,7 +58,7 @@ NHAI manages 1.5+ lakh kilometers of national highways with field personnel depl
 
 | Feature | Description |
 |---------|-------------|
-| 🎯 **100% Offline** | All ML inference runs on-device. No internet required for authentication. |
+| 🎯 **100% Offline** | All ML inference runs on-device. Zero internet required. |
 | 📸 **Real-time Face Detection** | 30 FPS face detection using Google ML Kit |
 | 🔐 **Hybrid Liveness Detection** | Active challenges (blink/smile/turn) + Passive LBP texture analysis |
 | 🔒 **AES-256 Encryption** | Face embeddings encrypted at rest |
@@ -36,29 +67,7 @@ NHAI manages 1.5+ lakh kilometers of national highways with field personnel depl
 | 📅 **Monthly Ledger** | Calendar-based attendance visualization with status indicators |
 | 📝 **Leave Management** | Apply, track, approve/reject with admin workflow |
 | ⏱️ **Check-In/Check-Out** | Complete daily attendance lifecycle with both timestamps |
-| 🔔 **Real-time Notifications** | In-app notification system |
-| 🇮🇳 **Bilingual Support** | English + Hindi UI for field workers |
 | 🛡️ **Hold-to-Authenticate** | 1.5-second anti-tampering gesture for secure login |
-
----
-
-## 🏗️ System Architecture
-
-```
-┌──────────────────────────────────────────────┐
-│           PRESENTATION LAYER                  │
-│  Splash → Login → Admin/Employee Portal       │
-├──────────────────────────────────────────────┤
-│           BUSINESS LOGIC LAYER                │
-│  Auth • Face Recognition • Liveness • Sync   │
-├──────────────────────────────────────────────┤
-│                ML LAYER                       │
-│  ML Kit • Feature Embedding • LBP Texture    │
-├──────────────────────────────────────────────┤
-│              DATA LAYER                       │
-│  SQLite (WAL) • AES-256 • MMKV • NetInfo    │
-└──────────────────────────────────────────────┘
-```
 
 ---
 
@@ -67,17 +76,9 @@ NHAI manages 1.5+ lakh kilometers of national highways with field personnel depl
 Complete authentication in **under 500 milliseconds**:
 
 ```
-Camera (30 FPS)
-    ↓ Native C++ Resize (10ms)
-Frame 128×128 RGB
-    ↓ ML Kit Detection (80ms)
-Face + 6 Landmarks
-    ↓ Feature Embedding (100ms)
-64-Dimensional Vector
-    ↓ Cosine Similarity (30ms)
-Best Match Found
-    ↓
-AUTHENTICATED ✅
+Camera (30 FPS) → ML Kit Detection (80ms) → 
+Feature Embedding (100ms) → Cosine Match (30ms) → 
+RESULT ✅
 ```
 
 ### Liveness Detection Strategy
@@ -126,7 +127,7 @@ AUTHENTICATED ✅
 ## 📊 Performance Benchmarks
 
 | Metric | Target | **Achieved** |
-|--------|--------|----------|
+|--------|--------|--------------|
 | AI Model Size | < 20 MB | **< 1 MB** ✅ |
 | Pipeline Speed | < 1 second | **~500ms** ✅ |
 | Face Detection | > 95% | **99%** (ML Kit) ✅ |
@@ -139,57 +140,23 @@ Tested on mid-range Android device (Snapdragon 600 series, 6GB RAM).
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ System Architecture
 
-### Prerequisites
-- Node.js 18 or higher
-- JDK 17
-- Android Studio with SDK 34
-- Android NDK 26.1.10909125
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/brajesh1210/DataLakeFaceAuth.git
-cd DataLakeFaceAuth
-
-# Install dependencies
-npm install --legacy-peer-deps
-
-# Start Metro bundler
-npx react-native start --reset-cache
-
-# Run on Android (new terminal)
-npx react-native run-android
 ```
-
-### Build Release APK
-
-```bash
-cd android
-./gradlew clean
-./gradlew assembleRelease
+┌──────────────────────────────────────────────┐
+│           PRESENTATION LAYER                  │
+│  Splash → Login → Admin/Employee Portal       │
+├──────────────────────────────────────────────┤
+│           BUSINESS LOGIC LAYER                │
+│  Auth • Face Recognition • Liveness • Sync   │
+├──────────────────────────────────────────────┤
+│                ML LAYER                       │
+│  ML Kit • Feature Embedding • LBP Texture    │
+├──────────────────────────────────────────────┤
+│              DATA LAYER                       │
+│  SQLite (WAL) • AES-256 • MMKV • NetInfo    │
+└──────────────────────────────────────────────┘
 ```
-
-APK location: `android/app/build/outputs/apk/release/`
-
----
-
-## 🔑 Demo Credentials
-
-| Role | Employee ID | Password |
-|------|------------|----------|
-| **Administrator** | `ADMIN` | `admin123` |
-| **Employee** | Any value | Any value |
-
-### Pre-seeded Test Users
-
-| Name | Employee ID |
-|------|------------|
-| Rajesh Kumar | EMP101 |
-| Priya Sharma | EMP102 |
-| Amit Singh | EMP103 |
 
 ---
 
@@ -269,16 +236,13 @@ DataLakeFaceAuth/
 OFFLINE OPERATION:
   Attendance → Encrypt → SQLite (local queue)
                   ↓
-  ┌──── NetInfo monitors connectivity ────┐
-  │                                        │
-  ↓                                        ↓
-Network Restored                    Auto AWS Sync
-  ↓                                        ↓
-AWS Health Check               Batch Upload (10/req)
-  ↓                                        ↓
-Server Confirms              Mark Synced in DB
-  ↓                                        ↓
-Purge Confirmed Records      Audit Log Entry
+  NetInfo monitors connectivity
+                  ↓
+  Network Restored → AWS Health Check
+                  ↓
+  Batch Upload (10 per request)
+                  ↓
+  Server Confirms → Mark Synced → Audit Log
 ```
 
 **Zero Data Loss Guarantee:** Only server-confirmed records are purged, last 7 days always retained.
@@ -299,9 +263,7 @@ Custom 19-component design system matching DataLake 3.0 visual language:
 
 ## 🧪 Testing
 
-The app supports comprehensive testing:
-
-```bash
+```
 # TypeScript check
 npx tsc --noEmit
 
